@@ -7,14 +7,14 @@ Single static binary, Linux and macOS.
 
 **Script (Linux/macOS):**
 ```sh
-curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/alexgoller/illumio-flowgen/releases/latest/download/install.sh | sh
 # or into your home dir:
-curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh -s -- --prefix ~/.local/bin
+curl -fsSL https://github.com/alexgoller/illumio-flowgen/releases/latest/download/install.sh | sh -s -- --prefix ~/.local/bin
 ```
 
 **Private repository:** download with the GitHub CLI, then install locally:
 ```sh
-gh release download --repo <owner>/<repo> --dir flowgen-dist
+gh release download --repo alexgoller/illumio-flowgen --dir flowgen-dist
 sh flowgen-dist/install.sh --from flowgen-dist
 ```
 
