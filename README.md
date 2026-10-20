@@ -3,6 +3,10 @@
 Generate NetFlow v5, NetFlow v9 and IPFIX traffic for testing and demoing **Illumio Flowlink**.
 Single static binary, Linux and macOS.
 
+## Documentation
+
+Step-by-step guides live in [`docs/`](docs/README.md): [quickstart](docs/quickstart.md), [demo runbook](docs/demo-guide.md), [writing scenarios](docs/scenarios.md), [protocol details](docs/protocols.md) and [troubleshooting](docs/troubleshooting.md).
+
 ## Install
 
 **Script (Linux/macOS):**
