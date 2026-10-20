@@ -1,0 +1,62 @@
+# Several application subnets with a mix of common datacenter services.
+name = "datacenter"
+
+[rate]
+flows_per_sec = 100
+shape = "constant"
+
+[[rule]]
+name = "web-to-app"
+src = ["10.10.1.0/28"]
+dst = ["10.10.2.0/28"]
+proto = "tcp"
+dst_ports = [443, 8443]
+weight = 5
+
+[[rule]]
+name = "app-to-mssql"
+src = ["10.10.2.0/28"]
+dst = ["10.10.3.0/28"]
+proto = "tcp"
+dst_ports = [1433]
+weight = 3
+
+[[rule]]
+name = "app-to-kafka"
+src = ["10.10.2.0/28"]
+dst = ["10.10.4.0/28"]
+proto = "tcp"
+dst_ports = [9092]
+weight = 3
+
+[[rule]]
+name = "ldap"
+src = ["10.10.1.0/28", "10.10.2.0/28", "10.10.3.0/28"]
+dst = ["10.10.4.0/28"]
+proto = "tcp"
+dst_ports = [389, 636]
+weight = 2
+
+[[rule]]
+name = "smb"
+src = ["10.10.2.0/28"]
+dst = ["10.10.3.0/28"]
+proto = "tcp"
+dst_ports = [445]
+weight = 1
+
+[[rule]]
+name = "admin-ssh"
+src = ["10.10.4.0/28"]
+dst = ["10.10.1.0/28", "10.10.2.0/28", "10.10.3.0/28"]
+proto = "tcp"
+dst_ports = [22]
+weight = 1
+
+[[rule]]
+name = "web-http"
+src = ["10.10.1.0/28"]
+dst = ["10.10.2.0/28"]
+proto = "tcp"
+dst_ports = [80]
+weight = 1
