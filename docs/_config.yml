@@ -1,0 +1,11 @@
+title: flowgen
+description: NetFlow v5/v9 and IPFIX traffic generator for testing and demoing Illumio Flowlink
+theme: jekyll-theme-cayman
+plugins:
+  - jekyll-relative-links
+  - jekyll-readme-index
+relative_links:
+  enabled: true
+  collections: false
+exclude:
+  - superpowers

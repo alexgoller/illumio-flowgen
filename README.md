@@ -5,6 +5,8 @@ Single static binary, Linux and macOS.
 
 ## Documentation
 
+Docs site: **https://alexgoller.github.io/illumio-flowgen/**
+
 Step-by-step guides live in [`docs/`](docs/README.md): [quickstart](docs/quickstart.md), [demo runbook](docs/demo-guide.md), [writing scenarios](docs/scenarios.md), [protocol details](docs/protocols.md) and [troubleshooting](docs/troubleshooting.md).
 
 ## Install
