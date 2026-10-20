@@ -1,7 +1,7 @@
 # flowgen — NetFlow/IPFIX generator for Illumio Flowlink
 
 Date: 2026-10-20
-Status: Approved design, pending implementation plan
+Status: Draft — updated with Flowlink research and CI packaging, pending review
 
 ## Purpose
 
@@ -14,6 +14,25 @@ Primary goal: **demos and functional testing** — plausible traffic at
 modest rates (tens to a few thousand flows/s). Throughput tuning for load
 testing is explicitly not a v1 goal.
 
+## Flowlink facts that shape the design
+
+Sources: Illumio Flowlink 2.0.0 Configuration and Usage guide
+(https://product-docs-repo.illumio.com/Tech-Docs/Core/PDFs/Illumio_Flowlink_Configure_and_Usage_2_0.pdf)
+and the 25.4 "Configure Flowlink" page.
+
+| Fact | Consequence for flowgen |
+|------|-------------------------|
+| Flowlink accepts NetFlow v5/v7/v9, IPFIX, sFlow v5, AWS, text. NetFlow/IPFIX examples are all UDP. | v5, v9, IPFIX over UDP covers it. |
+| Listeners are YAML `consumers` with `parser.type` (`netflow` / `ipfix`) and `connectors: [{type: udp, properties: {ports: ...}}]`. Documented ports: NetFlow 2055, IPFIX 4739 (also 6500/6514 in examples). | Default collector port 2055 for v5/v9 and 4739 for IPFIX when `--collector` gives only a host. Note: v5/v9 need a `netflow` parser, IPFIX an `ipfix` parser. A wrong protocol on a port gets silently dropped, so README shows a matching Flowlink snippet. |
+| Optional `remote_addrs` lists the exporter IPs that are allowed (no CIDRs). Flows from other sources are discarded. | Exporter = the host flowgen runs on. README tells users to add that IP or leave `remote_addrs` unset. The startup header prints the local source IP used. |
+| Flow key is effectively (src_ip, dst_ip, dst_port, proto). Illumio's own F5 IPFIX template uses flowStart/EndMilliseconds, src/dst IPv4, ports, protocolIdentifier, octet/packet delta counts. | Our templates use exactly these fields (plus tcpControlBits). |
+| Multicast (224.0.0.0/4) flows are ignored. | Validation rejects multicast CIDRs in rules/scans. |
+| Flowlink aggregates and posts to the PCE every `aggregation_minutes` (default 10, min 5). | README: flows appear in the PCE after up to one aggregation interval. The live UI shows a hint line saying so. |
+| PCE shows Flowlink flows only if at least one IP of each flow matches a managed or unmanaged workload. | Presets use small subnets (a few dozen IPs total). New `flowgen ips` subcommand prints every host IP a scenario can emit, so users can create unmanaged workloads or IP lists for them. |
+| PCE limit: about 10K unique flows/s total. Flowlink may consume more slowly than the source sends. | Rates stay modest. A warning is shown if `flows_per_sec` > 5000. |
+| Timestamp handling for NetFlow/IPFIX is not documented. | Records use current wall-clock times (end = now). |
+| `illumio-flowlink-ctl ... --debug` prints incoming records. | README troubleshooting points to it. |
+
 ## Scope
 
 In scope (v1):
@@ -25,7 +44,7 @@ In scope (v1):
 - Traffic patterns: weighted flow rules, rate shapes (constant/sine/burst),
   port-scan anomaly injection, built-in presets.
 - Dry-run mode (print flows, send nothing); live progress bar + stats in a TTY, plain stats lines otherwise.
-- Linux (.tar.gz, .deb, .rpm; x86_64 + arm64, static musl) and macOS (universal .tar.gz + .pkg) packages, plus a one-command `install.sh`.
+- Linux (.tar.gz, .deb, .rpm; x86_64 + arm64, static musl) and macOS (universal .tar.gz + .pkg) packages built in GitHub Actions, plus a one-command `install.sh`.
 
 Out of scope (v1): sFlow, IPv6, TCP/SCTP transport, exporter source-IP
 spoofing (raw sockets), multiple simultaneous collectors, Homebrew tap, code signing/notarization, high-throughput
@@ -201,20 +220,29 @@ flowgen run [-c FILE | --preset NAME] [--collector HOST:PORT]
             [--protocol v5|v9|ipfix] [--rate N] [--duration DUR]
             [--seed N] [--dry-run] [--no-progress] [--quiet]
 flowgen presets [--show NAME]
+flowgen ips [-c FILE | --preset NAME]    # unique host IPs, one per line
 flowgen --version
 ```
 
 - Exactly one of `-c` / `--preset` is required.
 - CLI flags override the corresponding scenario fields.
 - `--duration` accepts humantime (`30s`, `10m`, `1h`); default: run forever.
-- `--collector` accepts `host:port`; hostname resolved once at startup.
+- `--collector` accepts `host:port` or `host`. If the port is omitted, it
+  defaults to 2055 (v5/v9) or 4739 (IPFIX). Hostname resolved once at
+  startup.
+- `flowgen ips` expands every rule/scan CIDR into host IPs (deduplicated,
+  sorted). It refuses scenarios with more than 4096 hosts unless `--all`
+  is given.
 
 ### Presets
 
-- `three-tier`: web/app/db tiers in 10.1.{1,2,3}.0/24, clients from
-  192.168.0.0/16 → web 80/443, web → app 8080, app → db 5432/3306,
-  plus DNS (udp/53) and NTP (udp/123) to an infra subnet.
-- `datacenter`: several app subnets in 10.10.0.0/16 with mixed services
+Presets keep the host count small (about 60 IPs or fewer) so a demo PCE
+can get matching unmanaged workloads quickly.
+
+- `three-tier`: web 10.1.1.8/29, app 10.1.2.8/29, db 10.1.3.8/30, clients
+  192.168.10.0/27 → web 80/443, web → app 8080, app → db 5432/3306,
+  plus DNS (udp/53) and NTP (udp/123) to infra 10.1.0.10/31.
+- `datacenter`: four /28 app subnets in 10.10.0.0/16 with mixed services
   (http, https, ssh, ldap, smb, mssql, kafka), constant rate.
 - `scan-demo`: `three-tier` traffic plus a scanner hitting the app tier
   every 60 s.
@@ -226,11 +254,13 @@ Presets have no collector; one must come from `--collector`.
 At startup, fail with a clear message (exit code 2) on: unparseable TOML,
 invalid CIDR/IP, empty rule list with no scans, weight 0, empty port list
 on a tcp/udp rule, unknown preset, missing collector (unless dry-run),
-unresolvable collector, `flows_per_sec` < 0, unknown protocol/shape.
+unresolvable collector, `flows_per_sec` < 0, unknown protocol/shape,
+multicast (224.0.0.0/4) CIDR or IP in a rule or scan.
 Errors via `anyhow` with context.
 
-Warning only (not an error): an icmp rule with `dst_ports` — ports are
-ignored and dst port is 0.
+Warnings only (not errors):
+- an icmp rule with `dst_ports`: the ports are ignored and the dst port is 0.
+- `flows_per_sec` > 5000: above Flowlink/PCE comfort levels.
 
 ## Testing
 
@@ -243,6 +273,9 @@ ignored and dst port is 0.
   samples (seeded); scan bursts fire on schedule; rate-shape math.
 - Config tests: example and all presets parse and validate; CLI overrides
   apply; invalid inputs produce errors.
+- Collector parsing: host-only gets 2055 or 4739 depending on protocol;
+  multicast CIDRs are rejected; `ips` expansion dedups, sorts, and respects
+  the 4096-host cap.
 - Integration test: run the sender for a short duration against a local
   `UdpSocket`, decode received datagrams, assert flows arrive and decode.
 
@@ -251,45 +284,68 @@ ignored and dst port is 0.
 Goal: a colleague can install `flowgen` on Linux or macOS in one command,
 without Rust or Homebrew (Homebrew tap is out of scope for now).
 
-Targets and artifacts (all built by `scripts/package.sh` into `dist/`):
+**All packages are built in GitHub Actions, never locally.**
 
-| Platform | Target | Artifacts |
-|----------|--------|-----------|
-| Linux x86_64 | `x86_64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-x86_64.tar.gz`, `.deb`, `.rpm` |
-| Linux arm64 | `aarch64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-aarch64.tar.gz`, `.deb`, `.rpm` |
-| macOS | universal (`lipo` of x86_64 + aarch64 apple-darwin) | `flowgen-<ver>-macos-universal.tar.gz`, `flowgen-<ver>-macos-universal.pkg` |
+### CI workflows
 
-Plus `SHA256SUMS` over all artifacts.
+- `.github/workflows/ci.yml` — on push / pull request: `cargo fmt --check`,
+  `cargo clippy -- -D warnings`, `cargo test` on `ubuntu-latest` and
+  `macos-latest`.
+- `.github/workflows/release.yml` — on tag `v*` (and `workflow_dispatch`
+  for a dry run that uploads workflow artifacts without creating a release):
 
-- Each tarball contains: `flowgen` binary, `README.md`, `LICENSE`
-  (if present), `examples/*.toml`.
-- Linux musl builds via `cargo-zigbuild` (requires `zig`), so they can be
-  produced from a Mac. `.deb` via `cargo-deb`, `.rpm` via
-  `cargo-generate-rpm`; both install `/usr/bin/flowgen` and examples to
-  `/usr/share/doc/flowgen/examples/`. No systemd unit (it's a CLI tool).
-- macOS `.pkg` via `pkgbuild`, installs `/usr/local/bin/flowgen`.
-  Unsigned/not notarized in v1 — README documents
-  `xattr -d com.apple.quarantine` for downloaded tarballs and
-  right-click → Open for the pkg.
-- `install.sh` (POSIX sh): detects OS/arch, picks the matching tarball
-  (from a local `dist/` dir next to it, or a `--from URL_OR_DIR` base),
-  verifies SHA256 if `SHA256SUMS` is present, installs to `/usr/local/bin`
-  (uses `sudo` if needed) or `--prefix DIR`, removes macOS quarantine
-  attribute, prints `flowgen --version`. Usage:
-  `sh install.sh` or `curl -fsSL <base>/install.sh | sh -s -- --from <base>`.
-- Release binaries built with `--release`, `lto = "thin"`, `strip = true`.
-- Version comes from `Cargo.toml`; `flowgen --version` prints it plus git
-  short hash.
+| Job | Runner | Target | Artifacts |
+|-----|--------|--------|-----------|
+| linux-x86_64 | `ubuntu-latest` | `x86_64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-x86_64.tar.gz`, `.deb`, `.rpm` |
+| linux-aarch64 | `ubuntu-24.04-arm` | `aarch64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-aarch64.tar.gz`, `.deb`, `.rpm` |
+| macos | `macos-latest` | universal (`lipo` of x86_64 + aarch64 apple-darwin) | `flowgen-<ver>-macos-universal.tar.gz`, `.pkg` |
+| verify | `ubuntu-latest` (+ `ubuntu-24.04-arm`) | — | installs the `.deb` in `debian:stable-slim`, `.rpm` in `rockylinux:9`, tarball via `install.sh` in `alpine`; runs `flowgen --version` and a 2 s `--dry-run` |
+| publish | `ubuntu-latest` | — | `SHA256SUMS`, GitHub Release with all artifacts + `install.sh` |
 
-Packaging verification: run the Linux x86_64/aarch64 binaries in Docker
-(`debian:stable-slim`, `install .deb`; `rockylinux:9`, `install .rpm`;
-`alpine` for the bare tarball via `install.sh`) and check
-`flowgen --version` and a short `--dry-run`. macOS: run `install.sh
---prefix` into a temp dir and `pkgutil --payload-files` on the pkg.
+Native runners per architecture (no cross-compilation): musl via
+`musl-tools` on Ubuntu; `.deb` via `cargo-deb`, `.rpm` via
+`cargo-generate-rpm` (installed in CI with `taiki-e/install-action`).
+The macOS job also runs `install.sh --prefix` into a temp dir and checks
+the pkg with `pkgutil --payload-files`.
+
+### Artifact contents
+
+- Tarballs: `flowgen` binary, `README.md`, `LICENSE` (if present),
+  `examples/*.toml`.
+- `.deb` / `.rpm`: `/usr/bin/flowgen`, examples in
+  `/usr/share/doc/flowgen/examples/`. No systemd unit (CLI tool).
+- macOS `.pkg` (`pkgbuild`): `/usr/local/bin/flowgen`. Unsigned / not
+  notarized in v1; README documents `xattr -d com.apple.quarantine` for
+  tarballs and right-click → Open for the pkg.
+- Release profile: `lto = "thin"`, `strip = true`, `codegen-units = 1`.
+- Version from `Cargo.toml` (tag must match, checked in CI);
+  `flowgen --version` prints it plus git short hash (via `build.rs`,
+  falls back to `unknown`).
+
+### install.sh
+
+POSIX sh. Detects OS/arch, downloads (or takes from `--from DIR`) the
+matching tarball from the GitHub Release (`--version vX.Y.Z`, default
+latest), verifies against `SHA256SUMS`, installs to `/usr/local/bin`
+(using `sudo` if needed) or `--prefix DIR`, clears macOS quarantine,
+prints `flowgen --version`. Usage:
+`curl -fsSL https://github.com/<org>/illumio-flowgen/releases/latest/download/install.sh | sh`.
+The repo slug is a variable at the top of the script (repo has no remote
+yet). Private repo note: if the repo is private, use `gh release download`
+(documented in README) instead of curl.
+
+## Documentation
+
+`README.md` covers: install (`install.sh`, `.deb`/`.rpm`, `.pkg`, private
+repo via `gh release download`), quick start with a preset, scenario file
+reference, a matching Flowlink `consumers` YAML snippet for NetFlow
+(2055) and IPFIX (4739), PCE visibility checklist (unmanaged workloads via
+`flowgen ips`, `remote_addrs`, wait one aggregation interval), and
+troubleshooting (`illumio-flowlink-ctl --debug`, firewall/UDP reachability,
+`--dry-run`).
 
 ## Dependencies
 
 `clap` (derive), `serde`, `toml`, `anyhow`, `rand` (with seedable `StdRng`),
 `ipnet`, `humantime`, `ctrlc`, `indicatif`. Dev: `netflow_parser`.
-Packaging tools (dev machine only): `zig`, `cargo-zigbuild`, `cargo-deb`,
-`cargo-generate-rpm`.
+Packaging tools (CI only): `cargo-deb`, `cargo-generate-rpm`, `musl-tools`.
