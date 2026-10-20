@@ -24,10 +24,11 @@ In scope (v1):
 - Scenario configuration via TOML file, with CLI overrides for common knobs.
 - Traffic patterns: weighted flow rules, rate shapes (constant/sine/burst),
   port-scan anomaly injection, built-in presets.
-- Dry-run mode (print flows, send nothing) and periodic stats output.
+- Dry-run mode (print flows, send nothing); live progress bar + stats in a TTY, plain stats lines otherwise.
+- Linux (.tar.gz, .deb, .rpm; x86_64 + arm64, static musl) and macOS (universal .tar.gz + .pkg) packages, plus a one-command `install.sh`.
 
 Out of scope (v1): sFlow, IPv6, TCP/SCTP transport, exporter source-IP
-spoofing (raw sockets), multiple simultaneous collectors, high-throughput
+spoofing (raw sockets), multiple simultaneous collectors, Homebrew tap, code signing/notarization, high-throughput
 optimization, pcap output, interactive UI.
 
 ## Architecture
@@ -42,7 +43,8 @@ tests can reach them).
 | `pattern`   | `Generator` producing `FlowRecord`s from rules + scans; `RateShape` computing target flows/s at time t. |
 | `presets`   | Built-in scenarios embedded as TOML strings (`include_str!`). |
 | `export`    | `Encoder` trait; `v5`, `v9`, `ipfix` implementations packing records into MTU-bounded datagrams. |
-| `sender`    | UDP socket, pacing loop, stats reporting, dry-run sink. |
+| `sender`    | UDP socket, pacing loop, dry-run sink; updates `Stats`. |
+| `ui`        | Renders `Stats`: progress bar/spinner, live status line, plain log lines, final summary. |
 
 ### FlowRecord
 
@@ -118,11 +120,32 @@ Default max datagram size: 1400 bytes (configurable).
 
 Tick every 100 ms: compute flows due this tick from the rate shape
 (fractional remainder carried over), plus any scan burst due, generate,
-encode, send each datagram. Every `stats_interval_secs` (default 10) print
-one line: elapsed, flows sent, datagrams sent, current target rate, send
-errors. Run until `duration` elapses or Ctrl-C (graceful: print final
-stats). Send errors are counted and logged at most once per stats interval;
-they do not abort the run.
+encode, send each datagram. Run until `duration` elapses or Ctrl-C
+(graceful: print final summary). Send errors are counted and logged at most
+once per stats interval; they do not abort the run.
+
+### CLI output (stats and progress)
+
+Stats are collected in a `Stats` struct (flows, datagrams, bytes on wire,
+send errors, scan bursts, per-rule flow counts, current target rate,
+measured flows/s over the last ~5 s). Rendering lives in a separate
+`ui` module using `indicatif`:
+
+- **Interactive (stderr is a TTY)**:
+  - Header line at start: protocol, collector, scenario/preset name, seed.
+  - With `--duration`: a progress bar for elapsed/total time with ETA.
+    Without: a spinner with elapsed time.
+  - Live status line under it, refreshed ~4×/s:
+    `rate 212/s (target 200)  flows 12,345  pkts 1,020  errs 0  scans 1`.
+  - Scan bursts print a one-line notice above the bars.
+- **Non-interactive (not a TTY, or `--no-progress`)**: no bars; one plain
+  stats line every `stats_interval_secs` (default 10), suitable for logs.
+- **`--quiet`**: only errors and the final summary.
+- **Final summary** (always, on finish or Ctrl-C): duration, totals,
+  average flows/s, send errors, and a small per-rule table (rule name,
+  flows, share %).
+- Dry-run writes flows to stdout; bars/stats go to stderr so stdout stays
+  pipeable.
 
 Dry-run: instead of sending, print each flow as one line
 (`proto src:port -> dst:port pkts bytes`) to stdout; encoders still run so
@@ -176,8 +199,9 @@ every_secs = 120
 ```
 flowgen run [-c FILE | --preset NAME] [--collector HOST:PORT]
             [--protocol v5|v9|ipfix] [--rate N] [--duration DUR]
-            [--seed N] [--dry-run]
+            [--seed N] [--dry-run] [--no-progress] [--quiet]
 flowgen presets [--show NAME]
+flowgen --version
 ```
 
 - Exactly one of `-c` / `--preset` is required.
@@ -222,7 +246,50 @@ ignored and dst port is 0.
 - Integration test: run the sender for a short duration against a local
   `UdpSocket`, decode received datagrams, assert flows arrive and decode.
 
+## Packaging and installation
+
+Goal: a colleague can install `flowgen` on Linux or macOS in one command,
+without Rust or Homebrew (Homebrew tap is out of scope for now).
+
+Targets and artifacts (all built by `scripts/package.sh` into `dist/`):
+
+| Platform | Target | Artifacts |
+|----------|--------|-----------|
+| Linux x86_64 | `x86_64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-x86_64.tar.gz`, `.deb`, `.rpm` |
+| Linux arm64 | `aarch64-unknown-linux-musl` (static) | `flowgen-<ver>-linux-aarch64.tar.gz`, `.deb`, `.rpm` |
+| macOS | universal (`lipo` of x86_64 + aarch64 apple-darwin) | `flowgen-<ver>-macos-universal.tar.gz`, `flowgen-<ver>-macos-universal.pkg` |
+
+Plus `SHA256SUMS` over all artifacts.
+
+- Each tarball contains: `flowgen` binary, `README.md`, `LICENSE`
+  (if present), `examples/*.toml`.
+- Linux musl builds via `cargo-zigbuild` (requires `zig`), so they can be
+  produced from a Mac. `.deb` via `cargo-deb`, `.rpm` via
+  `cargo-generate-rpm`; both install `/usr/bin/flowgen` and examples to
+  `/usr/share/doc/flowgen/examples/`. No systemd unit (it's a CLI tool).
+- macOS `.pkg` via `pkgbuild`, installs `/usr/local/bin/flowgen`.
+  Unsigned/not notarized in v1 — README documents
+  `xattr -d com.apple.quarantine` for downloaded tarballs and
+  right-click → Open for the pkg.
+- `install.sh` (POSIX sh): detects OS/arch, picks the matching tarball
+  (from a local `dist/` dir next to it, or a `--from URL_OR_DIR` base),
+  verifies SHA256 if `SHA256SUMS` is present, installs to `/usr/local/bin`
+  (uses `sudo` if needed) or `--prefix DIR`, removes macOS quarantine
+  attribute, prints `flowgen --version`. Usage:
+  `sh install.sh` or `curl -fsSL <base>/install.sh | sh -s -- --from <base>`.
+- Release binaries built with `--release`, `lto = "thin"`, `strip = true`.
+- Version comes from `Cargo.toml`; `flowgen --version` prints it plus git
+  short hash.
+
+Packaging verification: run the Linux x86_64/aarch64 binaries in Docker
+(`debian:stable-slim`, `install .deb`; `rockylinux:9`, `install .rpm`;
+`alpine` for the bare tarball via `install.sh`) and check
+`flowgen --version` and a short `--dry-run`. macOS: run `install.sh
+--prefix` into a temp dir and `pkgutil --payload-files` on the pkg.
+
 ## Dependencies
 
 `clap` (derive), `serde`, `toml`, `anyhow`, `rand` (with seedable `StdRng`),
-`ipnet`, `humantime`, `ctrlc`. Dev: `netflow_parser`.
+`ipnet`, `humantime`, `ctrlc`, `indicatif`. Dev: `netflow_parser`.
+Packaging tools (dev machine only): `zig`, `cargo-zigbuild`, `cargo-deb`,
+`cargo-generate-rpm`.
