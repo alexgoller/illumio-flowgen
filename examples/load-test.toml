@@ -11,6 +11,19 @@ max_datagram = 1400
 flows_per_sec = 4000
 shape = "constant"
 
+# Labels for `flowgen ips --format workloader`
+# traffic sources
+[[host]]
+nets = ["10.100.0.0/16"]
+labels = { app = "load-test", env = "test", role = "client" }
+hostname_prefix = "lt-src"
+
+# traffic destinations
+[[host]]
+nets = ["10.101.0.0/16"]
+labels = { app = "load-test", env = "test", role = "server" }
+hostname_prefix = "lt-dst"
+
 [[rule]]
 name = "tcp-services"
 src = ["10.100.0.0/16"]

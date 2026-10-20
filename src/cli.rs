@@ -1,16 +1,17 @@
 //! Command-line interface.
 
-use std::io::{self, BufWriter};
+use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 
 use anyhow::{Context, Result, anyhow};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{Overrides, Scenario, resolve_collector};
 use crate::export::{Protocol, new_encoder};
+use crate::inventory::{resolve, write_workloader_csv};
 use crate::pattern::{Generator, IPS_LIMIT, RateShape, make_rng, scenario_hosts};
 use crate::presets::{PRESETS, find};
 use crate::sender::{Engine, Sink};
@@ -48,7 +49,19 @@ enum Command {
         /// List even if the scenario covers more than 4096 hosts
         #[arg(long)]
         all: bool,
+        /// Output format: bare IPs, or a workloader wkld-import CSV
+        #[arg(long, value_enum, default_value_t = IpsFormat::Plain)]
+        format: IpsFormat,
     },
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum IpsFormat {
+    /// One IP per line
+    #[default]
+    Plain,
+    /// CSV for `workloader wkld-import --umwl`
+    Workloader,
 }
 
 #[derive(Args)]
@@ -96,7 +109,11 @@ pub fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Run(args) => run(args),
         Command::Presets { show } => presets(show),
-        Command::Ips { source, all } => ips(&source, all),
+        Command::Ips {
+            source,
+            all,
+            format,
+        } => ips(&source, all, format),
     }
 }
 
@@ -193,12 +210,29 @@ fn presets(show: Option<String>) -> Result<()> {
     Ok(())
 }
 
-fn ips(source: &Source, all: bool) -> Result<()> {
+fn ips(source: &Source, all: bool, format: IpsFormat) -> Result<()> {
     let (scenario, _) = load(source)?;
     scenario.validate()?;
     let limit = if all { None } else { Some(IPS_LIMIT) };
-    for ip in scenario_hosts(&scenario, limit)? {
-        println!("{ip}");
+    let ips = scenario_hosts(&scenario, limit)?;
+    let mut out = BufWriter::new(io::stdout().lock());
+    let written = match format {
+        IpsFormat::Plain => ips.into_iter().try_for_each(|ip| writeln!(out, "{ip}")),
+        IpsFormat::Workloader => {
+            let hosts: Vec<_> = ips
+                .into_iter()
+                .map(|ip| resolve(&scenario.hosts, ip))
+                .collect();
+            let description = match &scenario.name {
+                Some(n) => format!("flowgen {n}"),
+                None => "flowgen".to_string(),
+            };
+            write_workloader_csv(&mut out, &description, &hosts)
+        }
+    };
+    // `flowgen ips | head` closes the pipe early; that is not an error
+    match written.and_then(|()| out.flush()) {
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        r => r.map_err(Into::into),
     }
-    Ok(())
 }

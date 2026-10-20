@@ -69,7 +69,8 @@ The samples use disjoint subnets, so several can run at once against one Flowlin
 ```sh
 flowgen run -c /usr/local/share/flowgen/examples/web-shop.toml --collector flowlink.lab   # install.sh
 flowgen run -c /usr/share/flowgen/examples/web-shop.toml --collector flowlink.lab     # .deb / .rpm
-flowgen ips -c /usr/share/flowgen/examples/web-shop.toml     # IPs to create as unmanaged workloads
+flowgen ips -c /usr/share/flowgen/examples/web-shop.toml     # plain list of IPs
+flowgen ips -c /usr/share/flowgen/examples/web-shop.toml --format workloader > web-shop.csv   # labelled CSV for workloader
 ```
 
 ## Making flows visible in the PCE
@@ -94,7 +95,14 @@ flowgen ips -c /usr/share/flowgen/examples/web-shop.toml     # IPs to create as 
    ```
    Some Flowlink doc examples use `destinations:` instead of `consumers:` - check `/usr/local/illumio/flowlink_config_schema.json` on your Flowlink host.
 2. **Exporter allow-list.** If Flowlink sets `remote_addrs`, add the "exporter source IP" flowgen prints at start.
-3. **Workloads for the IPs.** The PCE shows Flowlink flows only when at least one IP of a flow is a managed or unmanaged workload. `flowgen ips --preset three-tier` lists every IP a scenario can emit.
+3. **Workloads for the IPs.** The PCE shows Flowlink flows only when at least one IP of a flow is a managed or unmanaged workload. `flowgen ips --preset three-tier` lists every IP a scenario can emit. To create labelled unmanaged workloads with [workloader](https://github.com/brian1917/workloader):
+   ```sh
+   flowgen ips --preset three-tier --format workloader > three-tier.csv
+   workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change, writes nothing without --update-pce
+   workloader wkld-import three-tier.csv --umwl --update-pce --no-prompt
+   ```
+   Label types (role/app/env/loc, plus custom keys) must exist in the PCE; values are created. Labels come from optional `[[host]]` tables, see [scenarios.md](docs/scenarios.md#host-labels).
+   Scenario files that use `[[host]]` need flowgen 0.2.0 or later.
 4. **Wait one aggregation interval.** Flowlink posts to the PCE every `aggregation_minutes` (default 10, minimum 5).
 
 ## Scenario files
@@ -117,6 +125,7 @@ See [`examples/scenario.toml`](examples/scenario.toml) for every option with com
 | `[[rule]] name, src, dst, proto, dst_ports, weight` | weighted traffic rule (CIDRs or bare IPs) | weight 1 |
 | `[[rule]] packets`, `bytes_per_packet` | `[min, max]` ranges | by protocol |
 | `[[scan]] src, dst, ports, every_secs, flows_per_burst` | port scan bursts | every 120 s, 200 flows |
+| `[[host]] nets, labels, hostname_prefix` | labels/hostnames for `flowgen ips --format workloader` | prefix `fg` |
 
 Multicast ranges (224.0.0.0/4) are rejected because Flowlink ignores them. Rates above 5000 flows/s produce a warning. When the destination pool has other hosts, the generator never emits a flow from a host to itself.
 

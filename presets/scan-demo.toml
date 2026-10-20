@@ -7,6 +7,44 @@ shape = "sine"
 period_secs = 600
 amplitude = 0.4
 
+# Labels for `flowgen ips --format workloader`
+# app/env/loc for the whole 10.1.0.0/16 estate; narrower groups below add role and hostname
+[[host]]
+nets = ["10.1.0.0/16"]
+labels = { app = "portal", env = "prod", loc = "dc1" }
+
+[[host]]
+nets = ["192.168.10.0/27"]
+labels = { app = "portal", env = "prod", loc = "office", role = "client" }
+hostname_prefix = "client"
+
+# hosts serving DNS and NTP, role dns (app overridden by the more specific net)
+[[host]]
+nets = ["10.1.0.10/31"]
+labels = { role = "dns", app = "infra" }
+hostname_prefix = "dns"
+
+[[host]]
+nets = ["10.1.1.8/29"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.1.2.8/29"]
+labels = { role = "app" }
+hostname_prefix = "app"
+
+[[host]]
+nets = ["10.1.3.8/30"]
+labels = { role = "db" }
+hostname_prefix = "db"
+
+# the scanning (compromised) web server; same hostname as in three-tier so imports match
+[[host]]
+nets = ["10.1.1.13"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
 [[rule]]
 name = "clients-to-web"
 src = ["192.168.10.0/27"]

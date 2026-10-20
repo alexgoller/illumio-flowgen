@@ -2,12 +2,44 @@
 # workstations use file servers, and one admin jump host reaches servers over RDP/WinRM.
 # In Illumination look for the domain controllers as the hub and the jump host as the only admin-protocol source.
 # Run: flowgen run -c /usr/share/flowgen/examples/active-directory.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/active-directory.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/active-directory.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "active-directory"
 
 [rate]
 flows_per_sec = 60
 shape = "constant"
+
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.30.0.0/16"]
+labels = { app = "active-directory", env = "prod", loc = "hq" }
+
+[[host]]
+nets = ["192.168.30.0/27"]
+labels = { app = "active-directory", env = "prod", loc = "hq", role = "workstation" }
+hostname_prefix = "ws"
+
+# domain controllers
+[[host]]
+nets = ["10.30.1.10", "10.30.1.11", "10.30.1.12"]
+labels = { role = "dc" }
+hostname_prefix = "dc"
+
+[[host]]
+nets = ["10.30.2.0/28"]
+labels = { role = "member-server" }
+hostname_prefix = "srv"
+
+[[host]]
+nets = ["10.30.3.10/31"]
+labels = { role = "file-server" }
+hostname_prefix = "fs"
+
+[[host]]
+nets = ["10.30.4.5"]
+labels = { role = "jump-host" }
+hostname_prefix = "jump"
 
 [[rule]]
 name = "kerberos-tcp"

@@ -3,6 +3,7 @@
 pub mod cli;
 pub mod config;
 pub mod export;
+pub mod inventory;
 pub mod model;
 pub mod pattern;
 pub mod presets;

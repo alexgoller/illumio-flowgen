@@ -1,7 +1,8 @@
 # Sample: three-tier e-commerce shop (internet -> LB -> web -> app -> data/payment) with shared DNS/NTP.
 # Shows a classic app tier map in Illumination; the sine rate gives a daily-load-like wave.
 # Run: flowgen run -c /usr/share/flowgen/examples/web-shop.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/web-shop.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/web-shop.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "web-shop"
 
 [rate]
@@ -9,6 +10,57 @@ flows_per_sec = 80
 shape = "sine"
 period_secs = 600
 amplitude = 0.4
+
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.20.0.0/16"]
+labels = { app = "webshop", env = "prod", loc = "dc1" }
+
+# internet clients
+[[host]]
+nets = ["192.168.20.0/27"]
+labels = { app = "webshop", env = "prod", loc = "internet", role = "client" }
+hostname_prefix = "client"
+
+[[host]]
+nets = ["10.20.0.53"]
+labels = { role = "dns", app = "infra" }
+hostname_prefix = "dns"
+
+[[host]]
+nets = ["10.20.0.123"]
+labels = { role = "ntp", app = "infra" }
+hostname_prefix = "ntp"
+
+[[host]]
+nets = ["10.20.1.10/31"]
+labels = { role = "lb" }
+hostname_prefix = "lb"
+
+[[host]]
+nets = ["10.20.2.0/29"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.20.3.0/29"]
+labels = { role = "app" }
+hostname_prefix = "app"
+
+[[host]]
+nets = ["10.20.4.10"]
+labels = { role = "db" }
+hostname_prefix = "postgres"
+
+[[host]]
+nets = ["10.20.4.20"]
+labels = { role = "cache" }
+hostname_prefix = "redis"
+
+[[host]]
+nets = ["10.20.5.10"]
+labels = { role = "payment-api", app = "payments" }
+hostname_prefix = "payment-api"
 
 [[rule]]
 name = "internet-to-lb"

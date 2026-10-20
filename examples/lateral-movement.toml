@@ -2,12 +2,50 @@
 # the compromised workstation 10.40.1.5 sweeps the server subnet every 45 s and spreads over SMB/RDP.
 # In Illumination/Explorer look for 10.40.1.5 reaching many servers on 22/135/139/445/3389/5985 - then block it with a rule.
 # Run: flowgen run -c /usr/share/flowgen/examples/lateral-movement.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/lateral-movement.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/lateral-movement.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "lateral-movement"
 
 [rate]
 flows_per_sec = 40
 shape = "constant"
+
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.40.0.0/16"]
+labels = { app = "office", env = "prod", loc = "hq" }
+
+[[host]]
+nets = ["10.40.1.0/28"]
+labels = { role = "workstation" }
+hostname_prefix = "ws"
+
+# the compromised workstation (scan source)
+[[host]]
+nets = ["10.40.1.5"]
+labels = { role = "workstation" }
+hostname_prefix = "ws-compromised"
+
+# server subnet (scan target)
+[[host]]
+nets = ["10.40.2.0/28"]
+labels = { role = "server" }
+hostname_prefix = "srv"
+
+[[host]]
+nets = ["10.40.2.10"]
+labels = { role = "file-server" }
+hostname_prefix = "fs"
+
+[[host]]
+nets = ["10.40.3.8"]
+labels = { role = "proxy" }
+hostname_prefix = "proxy"
+
+[[host]]
+nets = ["10.40.3.53"]
+labels = { role = "dns" }
+hostname_prefix = "dns"
 
 [[rule]]
 name = "workstations-to-file-server"

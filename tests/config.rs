@@ -233,3 +233,98 @@ fn large_datagram_warns_about_fragmentation() {
     s.target.max_datagram = 1472;
     assert!(s.validate().unwrap().is_empty());
 }
+
+fn with_hosts(hosts: &str) -> Result<Vec<String>, String> {
+    let text = format!("{EXAMPLE}\n{hosts}");
+    Scenario::from_toml(&text)
+        .unwrap()
+        .validate()
+        .map_err(|e| format!("{e:#}"))
+}
+
+#[test]
+fn host_groups_parse() {
+    let s = Scenario::from_toml(&format!(
+        "{EXAMPLE}\n[[host]]\nnets = [\"10.1.1.0/24\", \"10.1.2.5\"]\nhostname_prefix = \"web\"\n[host.labels]\nrole = \"web\"\n"
+    ))
+    .unwrap();
+    assert_eq!(s.hosts.len(), 1);
+    assert_eq!(s.hosts[0].nets.len(), 2);
+    assert_eq!(s.hosts[0].labels["role"], "web");
+    assert_eq!(s.hosts[0].hostname_prefix.as_deref(), Some("web"));
+    assert!(base().hosts.is_empty());
+}
+
+#[test]
+fn host_empty_nets_rejected() {
+    let e = with_hosts("[[host]]\nnets = []\n").unwrap_err();
+    assert!(e.contains("[[host]] #1: nets must not be empty"), "{e}");
+}
+
+#[test]
+fn host_blank_label_value_rejected() {
+    let e = with_hosts("[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\nrole = \" \"\n")
+        .unwrap_err();
+    assert!(
+        e.contains(
+            "[[host]] #1: label keys and values must not be empty or have surrounding whitespace"
+        ),
+        "{e}"
+    );
+}
+
+#[test]
+fn host_label_whitespace_rejected() {
+    for labels in ["role = \" web\"", "role = \"web \"", "\" role\" = \"web\""] {
+        let e = with_hosts(&format!(
+            "[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\n{labels}\n"
+        ))
+        .unwrap_err();
+        assert!(
+            e.contains(
+                "[[host]] #1: label keys and values must not be empty or have surrounding whitespace"
+            ),
+            "{labels}: {e}"
+        );
+    }
+}
+
+#[test]
+fn host_reserved_label_keys_rejected() {
+    for key in [
+        "hostname",
+        "Name",
+        "INTERFACES",
+        "description",
+        "href",
+        "public_ip",
+    ] {
+        let e = with_hosts(&format!(
+            "[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\n{key} = \"x\"\n"
+        ))
+        .unwrap_err();
+        assert!(
+            e.contains(&format!("[[host]] #1: label key '{key}' is reserved")),
+            "{key}: {e}"
+        );
+    }
+}
+
+#[test]
+fn host_bad_prefix_rejected() {
+    for bad in ["web_1", "-web", "web-", ""] {
+        let e = with_hosts(&format!(
+            "[[host]]\nnets = [\"10.1.1.0/24\"]\nhostname_prefix = \"{bad}\"\n"
+        ))
+        .unwrap_err();
+        assert!(
+            e.contains("[[host]] #1: hostname_prefix must be letters, digits and inner '-'"),
+            "{bad}: {e}"
+        );
+    }
+}
+
+#[test]
+fn host_good_prefix_accepted() {
+    with_hosts("[[host]]\nnets = [\"10.1.1.0/24\"]\nhostname_prefix = \"web-1\"\n").unwrap();
+}

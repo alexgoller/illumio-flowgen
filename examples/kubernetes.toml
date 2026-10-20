@@ -2,7 +2,8 @@
 # reaches NodePorts, pods talk east-west between workers, and everything resolves through CoreDNS.
 # In Illumination look for the control plane as a small, well-defined zone and the worker mesh on 8080/9090.
 # Run: flowgen run -c /usr/share/flowgen/examples/kubernetes.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "kubernetes"
 
 [rate]
@@ -10,6 +11,36 @@ flows_per_sec = 100
 shape = "sine"
 period_secs = 300
 amplitude = 0.3
+
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.60.0.0/16"]
+labels = { app = "platform", env = "prod", loc = "dc1" }
+
+[[host]]
+nets = ["192.168.60.0/28"]
+labels = { app = "platform", env = "prod", loc = "office", role = "client" }
+hostname_prefix = "client"
+
+[[host]]
+nets = ["10.60.1.0/28"]
+labels = { role = "worker" }
+hostname_prefix = "k8s-worker"
+
+[[host]]
+nets = ["10.60.2.11", "10.60.2.12", "10.60.2.13"]
+labels = { role = "control-plane" }
+hostname_prefix = "k8s-cp"
+
+[[host]]
+nets = ["10.60.3.10"]
+labels = { role = "lb" }
+hostname_prefix = "ingress"
+
+[[host]]
+nets = ["10.60.4.10"]
+labels = { role = "dns" }
+hostname_prefix = "coredns"
 
 [[rule]]
 name = "workers-to-apiserver"

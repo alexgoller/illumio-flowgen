@@ -1,5 +1,6 @@
 //! Scenario configuration: TOML schema, CLI overrides, validation, collector parsing.
 
+use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use std::time::Duration;
@@ -34,6 +35,20 @@ pub struct Scenario {
     pub rules: Vec<Rule>,
     #[serde(default, rename = "scan")]
     pub scans: Vec<Scan>,
+    #[serde(default, rename = "host")]
+    pub hosts: Vec<HostGroup>,
+}
+
+/// Illumio label group applied to every host inside `nets`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HostGroup {
+    #[serde(deserialize_with = "de_nets")]
+    pub nets: Vec<Ipv4Net>,
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
+    #[serde(default)]
+    pub hostname_prefix: Option<String>,
 }
 
 fn default_stats_interval() -> u64 {
@@ -348,9 +363,47 @@ impl Scenario {
                 bail!("{ctx}: every_secs and flows_per_burst must be > 0");
             }
         }
+
+        for (i, host) in self.hosts.iter().enumerate() {
+            let ctx = format!("[[host]] #{}", i + 1);
+            if host.nets.is_empty() {
+                bail!("{ctx}: nets must not be empty");
+            }
+            for (k, v) in &host.labels {
+                if k.trim().is_empty() || v.trim().is_empty() || k.trim() != k || v.trim() != v {
+                    bail!(
+                        "{ctx}: label keys and values must not be empty or have surrounding whitespace"
+                    );
+                }
+                if RESERVED_LABEL_KEYS
+                    .iter()
+                    .any(|r| r.eq_ignore_ascii_case(k))
+                {
+                    bail!("{ctx}: label key '{k}' is reserved");
+                }
+            }
+            if let Some(p) = &host.hostname_prefix
+                && (p.is_empty()
+                    || p.starts_with('-')
+                    || p.ends_with('-')
+                    || !p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+            {
+                bail!("{ctx}: hostname_prefix must be letters, digits and inner '-'");
+            }
+        }
         Ok(warnings)
     }
 }
+
+/// CSV columns of the workloader export; a label with one of these keys would clash.
+const RESERVED_LABEL_KEYS: [&str; 6] = [
+    "hostname",
+    "name",
+    "interfaces",
+    "description",
+    "href",
+    "public_ip",
+];
 
 fn check_multicast<'a>(ctx: &str, nets: impl Iterator<Item = &'a Ipv4Net>) -> Result<()> {
     for net in nets {

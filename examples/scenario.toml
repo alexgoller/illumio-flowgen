@@ -29,6 +29,44 @@ amplitude = 0.5               # sine: +/- fraction of flows_per_sec
 # burst_multiplier = 5        # burst: rate multiplier during a burst
 # burst_secs = 10             # burst: burst length
 
+# Labels for `flowgen ips --format workloader`
+# Optional [[host]] tables give the generated IPs Illumio labels and hostnames. Fields:
+#   nets            required, non-empty: CIDRs or bare IPs this group covers
+#   labels          optional: Illumio labels (role, app, env, loc); keys and values non-empty
+#   hostname_prefix optional: hostname is "<prefix>-<a>-<b>-<c>-<d>" (letters, digits, inner '-'; default "fg")
+# Merge rules: every group whose net contains an IP applies, ordered by the most specific
+# matching prefix length (file order breaks ties); later/more specific groups overwrite
+# earlier ones per label key and for hostname_prefix. So put app/env/loc on a broad net
+# and role + hostname_prefix on narrow nets. Scan src IPs need labels too.
+[[host]]
+nets = ["10.1.0.0/16"]
+labels = { app = "shop", env = "prod", loc = "dc1" }
+
+[[host]]
+nets = ["10.1.1.0/28"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.1.2.0/28"]
+labels = { role = "app" }
+hostname_prefix = "app"
+
+[[host]]
+nets = ["10.1.3.10"]
+labels = { role = "db" }
+hostname_prefix = "db"
+
+[[host]]
+nets = ["10.1.0.53"]
+labels = { role = "dns", app = "infra" }   # app overrides the broad group above
+hostname_prefix = "dns"
+
+[[host]]
+nets = ["10.9.9.9"]                  # the port scanner
+labels = { role = "attacker", app = "external", env = "prod" }
+hostname_prefix = "scanner"
+
 # Weighted traffic rules: each flow picks a rule by weight, then random
 # src/dst hosts from the CIDR lists (bare IPs are /32).
 [[rule]]

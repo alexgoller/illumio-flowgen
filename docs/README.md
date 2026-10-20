@@ -21,7 +21,8 @@ Command cheat sheet:
 ```sh
 flowgen presets                                   # list built-in scenarios
 flowgen presets --show three-tier                 # print a preset as TOML
-flowgen ips --preset three-tier                   # IPs to create as unmanaged workloads
+flowgen ips --preset three-tier                   # plain list of IPs
+flowgen ips --preset three-tier --format workloader > three-tier.csv   # labelled CSV for workloader wkld-import
 flowgen run --preset three-tier --dry-run --duration 10s            # print flows, send nothing
 flowgen run --preset three-tier --collector flowlink.lab            # IPFIX to port 4739
 flowgen run -c examples/web-shop.toml --collector 10.0.0.5 --protocol v9   # NetFlow v9 to port 2055

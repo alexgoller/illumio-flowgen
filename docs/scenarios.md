@@ -10,6 +10,7 @@ name = "..."                 # top level: name, seed, stats_interval_secs
 [rate]                       # how fast (optional)
 [[rule]]                     # one or more weighted traffic rules
 [[scan]]                     # zero or more port-scan bursts
+[[host]]                     # zero or more label groups for `flowgen ips --format workloader`
 ```
 
 At least one `[[rule]]` or `[[scan]]` is required.
@@ -45,6 +46,9 @@ At least one `[[rule]]` or `[[scan]]` is required.
 | `[[scan]] ports` | `"1-1024"`, `"22"` or `[22, 3389]` | required |
 | `[[scan]] every_secs` | interval between bursts (> 0) | 120 |
 | `[[scan]] flows_per_burst` | flows per burst (> 0) | 200 |
+| `[[host]] nets` | CIDRs or bare IPs the group covers | required, non-empty |
+| `[[host]] labels` | inline table of Illumio labels, e.g. `{ role = "web", env = "prod" }`; keys and values non-empty | none |
+| `[[host]] hostname_prefix` | hostname prefix: letters, digits, inner `-` | `fg` |
 
 CLI overrides: `--collector`, `--protocol`, `--rate` (sets `flows_per_sec`), `--seed`. Everything else comes from the file.
 
@@ -69,6 +73,43 @@ CLI overrides: `--collector`, `--protocol`, `--rate` (sets `flows_per_sec`), `--
 - `burst`: `rate = flows_per_sec`; each second there is a `burst_chance` of starting a burst, during which `rate = flows_per_sec * burst_multiplier` for `burst_secs`.
 
 **Scans** run on top of the regular rate. The first burst fires `every_secs` after start, then repeats. A burst is `flows_per_burst` one-packet TCP SYN flows (flags 0x02, 44-60 bytes) from `src` to random dst host / port combinations. flowgen prints `scan burst from <ip>: <n> flows`. A scenario with only `[[scan]]` entries is valid.
+
+## Host labels
+
+`[[host]]` tables are optional and do not affect traffic. They give the generated IPs labels and hostnames for `flowgen ips --format workloader` (see [demo-guide](demo-guide.md#2-create-the-workloads)).
+
+```toml
+[[host]]                                   # broad group: shared labels
+nets = ["10.1.0.0/16"]
+labels = { app = "shop", env = "prod", loc = "dc1" }
+
+[[host]]                                   # narrower group: adds role and hostname prefix
+nets = ["10.1.1.0/28"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.1.3.10"]
+labels = { role = "db" }
+hostname_prefix = "db"
+```
+
+**Merge rules.** Every group whose `nets` contain an IP applies. Groups are ordered by the most specific matching prefix length, file order breaking ties; later (more specific) groups overwrite earlier ones per label key and for `hostname_prefix`. Put app/env/loc on a broad net and role plus prefix on narrow ones. Scan source IPs need labels too.
+
+**Hostname** is `{hostname_prefix or "fg"}-a-b-c-d`, so 10.1.1.9 in the group above becomes `web-10-1-1-9`. It is derived from the IP, so re-imports match the same workload.
+
+**CSV columns** (`flowgen ips --format workloader`): `hostname,name,interfaces,description,role,app,env,loc`, then any other label keys sorted. `name` equals the hostname, `interfaces` is the bare IP (workloader names the interface `umwl`), `description` is `flowgen <scenario name>`. Empty cells leave existing PCE values unchanged.
+
+Output of `flowgen ips --preset three-tier --format workloader` (the values come from that preset, not from the TOML example above):
+
+```
+hostname,name,interfaces,description,role,app,env,loc
+dns-10-1-0-10,dns-10-1-0-10,10.1.0.10,flowgen three-tier,dns,infra,prod,dc1
+dns-10-1-0-11,dns-10-1-0-11,10.1.0.11,flowgen three-tier,dns,infra,prod,dc1
+web-10-1-1-9,web-10-1-1-9,10.1.1.9,flowgen three-tier,web,portal,prod,dc1
+```
+
+The built-in presets and sample scenarios already carry `[[host]]` groups.
 
 ## Validation
 
@@ -156,12 +197,12 @@ every_secs = 90
 flows_per_burst = 100
 ```
 
-`flowgen ips -c shop.toml` now lists 22 IPs: create them as unmanaged workloads and run it.
+`flowgen ips -c shop.toml` now lists 22 IPs: create them as unmanaged workloads (or add `--format workloader` for a labelled CSV) and run it.
 
 ## Tips
 
 - Keep scenarios at or below roughly 60 hosts for PCE demos: every IP should become a workload, and small maps stay readable. Use `/28`-`/29` subnets or single IPs instead of `/24`.
-- `flowgen ips` refuses more than 4096 hosts (`scenario covers up to N host IPs (limit 4096); pass --all to list them anyway`). `--all` lists everything, for example `flowgen ips -c examples/load-test.toml --all` prints 131,068 IPs.
+- `flowgen ips` (plain and `--format workloader`) refuses more than 4096 hosts (`scenario covers up to N host IPs (limit 4096); pass --all to list them anyway`). `--all` lists everything, for example `flowgen ips -c examples/load-test.toml --all` prints 131,068 IPs.
 - Use disjoint subnets per scenario if you want to run several at once.
 - Do not use multicast ranges; Flowlink ignores them.
 - Keep `flows_per_sec` modest (tens to hundreds). Warning above 5000.
