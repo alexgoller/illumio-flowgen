@@ -174,6 +174,9 @@ fn default_sizes(proto: Proto) -> ((u64, u64), (u64, u64)) {
     }
 }
 
+/// Resample attempts when the destination equals the source.
+const MAX_DST_RETRIES: usize = 8;
+
 impl Generator {
     pub fn new(s: &Scenario, rng: StdRng) -> Result<Self> {
         let rules = s
@@ -253,9 +256,19 @@ impl Generator {
         let packets = rng.random_range(rule.packets.0..=rule.packets.1);
         let bytes = packets * rng.random_range(rule.bytes_per_packet.0..=rule.bytes_per_packet.1);
         let duration = Duration::from_millis(rng.random_range(FLOW_DURATION_MS));
+        let src_addr = rule.src.sample(rng);
+        // Avoid host-to-self flows when pools overlap; bounded so a single-host
+        // pool equal to src still terminates (and emits the self-flow).
+        let mut dst_addr = rule.dst.sample(rng);
+        for _ in 0..MAX_DST_RETRIES {
+            if dst_addr != src_addr {
+                break;
+            }
+            dst_addr = rule.dst.sample(rng);
+        }
         let record = FlowRecord {
-            src_addr: rule.src.sample(rng),
-            dst_addr: rule.dst.sample(rng),
+            src_addr,
+            dst_addr,
             src_port: if rule.protocol == PROTO_ICMP {
                 0
             } else {

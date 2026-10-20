@@ -249,3 +249,41 @@ fn scenario_hosts_respects_limit() {
         65534 + 2 + 1 + 2 + 2
     );
 }
+
+#[test]
+fn overlapping_pools_never_yield_self_flows() {
+    let s = Scenario::from_toml(
+        r#"
+[[rule]]
+name = "mesh"
+src = ["10.0.0.0/29"]
+dst = ["10.0.0.0/29"]
+proto = "tcp"
+dst_ports = [8080]
+"#,
+    )
+    .unwrap();
+    let mut g = Generator::new(&s, rng()).unwrap();
+    for _ in 0..2000 {
+        let (_, f) = g.next_flow(SystemTime::now());
+        assert_ne!(f.src_addr, f.dst_addr);
+    }
+}
+
+#[test]
+fn single_host_self_rule_still_terminates() {
+    let s = Scenario::from_toml(
+        r#"
+[[rule]]
+name = "self"
+src = ["10.0.0.5"]
+dst = ["10.0.0.5"]
+proto = "tcp"
+dst_ports = [8080]
+"#,
+    )
+    .unwrap();
+    let mut g = Generator::new(&s, rng()).unwrap();
+    let (_, f) = g.next_flow(SystemTime::now());
+    assert_eq!(f.src_addr, f.dst_addr);
+}

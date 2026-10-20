@@ -73,3 +73,34 @@ fn feature_samples_use_their_feature() {
         "load-test is intentionally large"
     );
 }
+
+#[test]
+fn demo_samples_have_pairwise_disjoint_hosts() {
+    use std::collections::HashSet;
+    let demos: Vec<&str> = SAMPLES
+        .iter()
+        .copied()
+        .filter(|s| *s != "load-test")
+        .collect();
+    let sets: Vec<HashSet<_>> = demos
+        .iter()
+        .map(|stem| {
+            let s = Scenario::from_file(&path(stem)).unwrap();
+            scenario_hosts(&s, Some(IPS_LIMIT))
+                .unwrap()
+                .into_iter()
+                .collect()
+        })
+        .collect();
+    for i in 0..sets.len() {
+        for j in i + 1..sets.len() {
+            let overlap: Vec<_> = sets[i].intersection(&sets[j]).collect();
+            assert!(
+                overlap.is_empty(),
+                "{} and {} share {overlap:?}",
+                demos[i],
+                demos[j]
+            );
+        }
+    }
+}

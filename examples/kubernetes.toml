@@ -52,7 +52,7 @@ dst_ports = [80, 443]              # http, https
 weight = 4
 
 [[rule]]
-name = "pod-to-pod"
+name = "worker-to-worker"
 src = ["10.60.1.0/28"]
 dst = ["10.60.1.0/28"]
 proto = "tcp"
