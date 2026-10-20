@@ -126,4 +126,18 @@ if [ "$os" = Darwin ]; then
 fi
 
 echo "installed $PREFIX/flowgen"
+
+# Sample scenarios go next to the binary tree: <prefix>/../share/flowgen/examples
+examples_dir="$(dirname "$PREFIX")/share/flowgen/examples"
+have_examples=no
+for f in "$tmp/$dir"/examples/*.toml; do
+  [ -f "$f" ] && have_examples=yes && break
+done
+if [ "$have_examples" = yes ]; then
+  as_root mkdir -p "$examples_dir"
+  for f in "$tmp/$dir"/examples/*.toml; do
+    as_root install -m 0644 "$f" "$examples_dir/$(basename "$f")"
+  done
+  echo "examples: $examples_dir"
+fi
 "$PREFIX/flowgen" --version

@@ -17,6 +17,7 @@ name="flowgen-9.9.9-$platform"
 mkdir -p "$work/$name/examples" "$work/dist"
 printf '#!/bin/sh\necho "flowgen 9.9.9 (stub)"\n' > "$work/$name/flowgen"
 chmod +x "$work/$name/flowgen"
+echo "# demo" > "$work/$name/examples/demo.toml"
 echo "# readme" > "$work/$name/README.md"
 tar -C "$work" -czf "$work/dist/$name.tar.gz" "$name"
 
@@ -30,6 +31,8 @@ fi
 out=$(sh "$here/install.sh" --from "$work/dist" --prefix "$work/bin")
 echo "$out" | grep -q "flowgen 9.9.9 (stub)" || { echo "FAIL: version not printed: $out" >&2; exit 1; }
 [ -x "$work/bin/flowgen" ] || { echo "FAIL: binary not installed" >&2; exit 1; }
+
+[ -f "$work/share/flowgen/examples/demo.toml" ] || { echo "FAIL: examples not installed" >&2; exit 1; }
 
 # 2. Tampered checksum must abort.
 awk '{ print "0000000000000000000000000000000000000000000000000000000000000000  " $2 }' "$work/dist/SHA256SUMS" > "$work/dist/SHA256SUMS.bad"

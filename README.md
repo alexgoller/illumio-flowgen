@@ -37,10 +37,12 @@ Ctrl-C stops gracefully and prints a summary.
 
 ## Sample scenarios
 
-The packages ship 7 sample scenarios plus the annotated `scenario.toml`. Locations:
+The release ships 7 sample scenarios plus the annotated `scenario.toml`. Locations by install method:
 
+- `install.sh`: `/usr/local/share/flowgen/examples/` (generally `<prefix>/../share/flowgen/examples/`)
 - `.deb` / `.rpm`: `/usr/share/doc/flowgen/examples/`
 - tarball: `examples/` inside the archive
+- macOS `.pkg`: binary only; use the tarball or the repository for samples
 - repository: `examples/`
 
 | File | Demonstrates | Hosts |
@@ -51,7 +53,7 @@ The packages ship 7 sample scenarios plus the annotated `scenario.toml`. Locatio
 | `lateral-movement.toml` | Ransomware-style spread for segmentation demos: compromised workstation 10.40.1.5 sweeps the server subnet over SMB/RDP | 30 |
 | `ot-iot.toml` | OT/IoT segment: HMIs, historian and engineering workstation to PLCs, sensors to an MQTT broker; industrial protocols, small flows | 38 |
 | `burst-demo.toml` | Small two-tier app with bursty rate (base 20 flows/s, 8x bursts) to show spikes on the progress display and in Explorer | 17 |
-| `load-test.toml` | Functional load test, 4000 flows/s between two /16 networks | 262136 (see below) |
+| `load-test.toml` | Functional load test, 4000 flows/s between two /16 networks | 131,068 distinct IPs (refused by `flowgen ips` without `--all`) |
 | `scenario.toml` | Annotated reference with every option | 31 |
 
 `load-test.toml` is intentionally huge: `flowgen ips` refuses it without `--all`, and it is not meant for PCE visibility. Use it to check collector throughput and datagram packing, not to build a demo map (Flowlink/PCE handle about 10K unique flows/s in total).
@@ -59,7 +61,8 @@ The packages ship 7 sample scenarios plus the annotated `scenario.toml`. Locatio
 The samples use disjoint subnets, so several can run at once against one Flowlink.
 
 ```sh
-flowgen run -c /usr/share/doc/flowgen/examples/web-shop.toml --collector flowlink.lab
+flowgen run -c /usr/local/share/flowgen/examples/web-shop.toml --collector flowlink.lab   # install.sh
+flowgen run -c /usr/share/doc/flowgen/examples/web-shop.toml --collector flowlink.lab     # .deb / .rpm
 flowgen ips -c /usr/share/doc/flowgen/examples/web-shop.toml     # IPs to create as unmanaged workloads
 ```
 
