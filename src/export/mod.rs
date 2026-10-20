@@ -1,5 +1,6 @@
 //! Flow export encoders. Each encoder turns `FlowRecord`s into UDP payloads.
 
+pub mod ipfix;
 pub mod v5;
 pub mod v9;
 
@@ -118,5 +119,20 @@ impl TemplateTimer {
         }
         self.packets_since += 1;
         due
+    }
+}
+
+/// Build the encoder for `protocol`. `start` is when flowgen started; v5/v9
+/// report uptimes relative to a pretend boot `BOOT_OFFSET` earlier.
+pub fn new_encoder(
+    protocol: Protocol,
+    opts: &EncoderOptions,
+    start: SystemTime,
+) -> Box<dyn Encoder> {
+    let boot = start - BOOT_OFFSET;
+    match protocol {
+        Protocol::V5 => Box::new(v5::V5Encoder::new(boot, opts.max_datagram)),
+        Protocol::V9 => Box::new(v9::V9Encoder::new(boot, opts)),
+        Protocol::Ipfix => Box::new(ipfix::IpfixEncoder::new(opts)),
     }
 }
