@@ -39,7 +39,7 @@ Ctrl-C stops gracefully and prints a summary.
 
 The release ships 7 sample scenarios plus the annotated `scenario.toml`. Locations by install method:
 
-- `install.sh`: `/usr/local/share/flowgen/examples/` (generally `<prefix>/../share/flowgen/examples/`)
+- `install.sh`: `/usr/local/share/flowgen/examples/` (`<prefix>/../share/flowgen/examples/` when the prefix ends in `bin`, otherwise `<prefix>/examples/`; e.g. `~/.local/share/flowgen/examples/` for `--prefix ~/.local/bin`)
 - `.deb` / `.rpm`: `/usr/share/doc/flowgen/examples/`
 - tarball: `examples/` inside the archive
 - macOS `.pkg`: binary only; use the tarball or the repository for samples
@@ -103,7 +103,7 @@ See [`examples/scenario.toml`](examples/scenario.toml) for every option with com
 | `[target] protocol` | `v5` \| `v9` \| `ipfix` | `ipfix` |
 | `[target] observation_domain` | v9 source id / IPFIX domain | 1 |
 | `[target] template_refresh_secs` | template resend interval (also every 100 packets) | 30 |
-| `[target] max_datagram` | max UDP payload bytes (256-65000) | 1400 |
+| `[target] max_datagram` | max UDP payload bytes (256-65000; above 1472 IP-fragments, macOS rejects above 9216) | 1400 |
 | `[rate] flows_per_sec` | base rate | 100 |
 | `[rate] shape` | `constant` \| `sine` \| `burst` | `constant` |
 | `[rate] period_secs`, `amplitude` | sine wave | 300, 0.5 |

@@ -323,7 +323,8 @@ impl Generator {
 }
 
 /// Every host IP the scenario can emit (sorted, deduplicated), for creating
-/// matching unmanaged workloads in the PCE. `limit` caps the pre-dedup count.
+/// matching unmanaged workloads in the PCE. `limit` caps an upper bound computed
+/// from the aggregated nets, checked before anything is enumerated.
 pub fn scenario_hosts(s: &Scenario, limit: Option<u64>) -> Result<Vec<Ipv4Addr>> {
     let mut pools = Vec::new();
     for r in &s.rules {
@@ -333,7 +334,24 @@ pub fn scenario_hosts(s: &Scenario, limit: Option<u64>) -> Result<Vec<Ipv4Addr>>
     for sc in &s.scans {
         pools.push(HostPool::new(&sc.dst));
     }
-    let upper = pools.iter().map(HostPool::len).sum::<u64>() + s.scans.len() as u64;
+    // Upper bound on the deduplicated count: aggregate overlapping/identical
+    // nets first so repeated subnets are not counted once per rule.
+    let mut all_nets: Vec<Ipv4Net> = Vec::new();
+    for r in &s.rules {
+        all_nets.extend(r.src.iter().chain(&r.dst));
+    }
+    for sc in &s.scans {
+        all_nets.extend(&sc.dst);
+    }
+    let all_nets = Ipv4Net::aggregate(&all_nets);
+    let mut upper = HostPool::new(&all_nets).len();
+    let extra_srcs: BTreeSet<Ipv4Addr> = s
+        .scans
+        .iter()
+        .map(|sc| sc.src)
+        .filter(|ip| !all_nets.iter().any(|n| n.contains(ip)))
+        .collect();
+    upper += extra_srcs.len() as u64;
     if let Some(limit) = limit
         && upper > limit
     {

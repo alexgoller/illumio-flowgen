@@ -46,4 +46,9 @@ rm "$work/dist/SHA256SUMS"
 sh "$here/install.sh" --from "$work/dist" --prefix "$work/bin3" >/dev/null
 [ -x "$work/bin3/flowgen" ] || { echo "FAIL: install without SHA256SUMS" >&2; exit 1; }
 
+# 4. Prefix not ending in bin: examples go to <prefix>/examples.
+sh "$here/install.sh" --from "$work/dist" --prefix "$work/opt" >/dev/null
+[ -x "$work/opt/flowgen" ] || { echo "FAIL: non-bin prefix binary" >&2; exit 1; }
+[ -f "$work/opt/examples/demo.toml" ] || { echo "FAIL: non-bin prefix examples" >&2; exit 1; }
+
 echo "install.sh tests passed"

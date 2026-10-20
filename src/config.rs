@@ -14,6 +14,8 @@ use crate::model::{PROTO_ICMP, PROTO_TCP, PROTO_UDP};
 pub const MIN_DATAGRAM: usize = 256;
 pub const MAX_DATAGRAM: usize = 65000;
 pub const HIGH_RATE_WARNING: f64 = 5000.0;
+/// Hard cap: the pacer builds this many records per tick.
+pub const MAX_FLOWS_PER_SEC: f64 = 1_000_000.0;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -250,6 +252,12 @@ impl Scenario {
                 t.max_datagram
             );
         }
+        if t.max_datagram > 1472 {
+            warnings.push(format!(
+                "target.max_datagram = {} exceeds 1472 bytes; datagrams will be IP-fragmented, and macOS rejects UDP payloads above 9216 bytes",
+                t.max_datagram
+            ));
+        }
         if t.template_refresh_secs == 0 {
             bail!("target.template_refresh_secs must be > 0");
         }
@@ -258,28 +266,36 @@ impl Scenario {
         if !r.flows_per_sec.is_finite() || r.flows_per_sec < 0.0 {
             bail!("rate.flows_per_sec must be >= 0, got {}", r.flows_per_sec);
         }
+        if r.flows_per_sec > MAX_FLOWS_PER_SEC {
+            bail!(
+                "rate.flows_per_sec must be <= {MAX_FLOWS_PER_SEC}, got {}",
+                r.flows_per_sec
+            );
+        }
         if r.flows_per_sec > HIGH_RATE_WARNING {
             warnings.push(format!(
                 "rate.flows_per_sec = {} is above {HIGH_RATE_WARNING}; Flowlink/PCE handle about 10K unique flows/s in total",
                 r.flows_per_sec
             ));
         }
-        if r.shape == Shape::Sine && r.period_secs <= 0.0 {
+        if r.shape == Shape::Sine && !(r.period_secs.is_finite() && r.period_secs > 0.0) {
             bail!("rate.period_secs must be > 0 for shape = \"sine\"");
         }
-        if !(0.0..=1.0).contains(&r.amplitude) {
+        if !r.amplitude.is_finite() || !(0.0..=1.0).contains(&r.amplitude) {
             bail!(
                 "rate.amplitude must be between 0 and 1, got {}",
                 r.amplitude
             );
         }
-        if !(0.0..=1.0).contains(&r.burst_chance) {
+        if !r.burst_chance.is_finite() || !(0.0..=1.0).contains(&r.burst_chance) {
             bail!(
                 "rate.burst_chance must be between 0 and 1, got {}",
                 r.burst_chance
             );
         }
-        if r.burst_multiplier < 1.0 || r.burst_secs <= 0.0 {
+        if !(r.burst_multiplier.is_finite() && r.burst_multiplier >= 1.0)
+            || !(r.burst_secs.is_finite() && r.burst_secs > 0.0)
+        {
             bail!("rate.burst_multiplier must be >= 1 and rate.burst_secs > 0");
         }
 

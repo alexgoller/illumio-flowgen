@@ -18,7 +18,7 @@ collector = "10.0.0.5:4739"
 protocol = "ipfix"            # v5 | v9 | ipfix
 observation_domain = 1        # v9 source id / IPFIX observation domain
 template_refresh_secs = 30    # v9/IPFIX template resend interval
-max_datagram = 1400           # bytes per UDP payload (256..65000)
+max_datagram = 1400           # bytes per UDP payload (256..65000); above 1472 datagrams IP-fragment, macOS caps UDP at 9216
 
 [rate]
 flows_per_sec = 200

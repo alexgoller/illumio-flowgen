@@ -20,10 +20,29 @@ pub enum Mode {
     Quiet,
 }
 
-pub fn pick_mode(no_progress: bool, quiet: bool) -> Mode {
+/// Terminal-aware wrapper around [`select_mode`].
+pub fn pick_mode(no_progress: bool, quiet: bool, dry_run: bool) -> Mode {
+    select_mode(
+        std::io::stderr().is_terminal(),
+        std::io::stdout().is_terminal(),
+        dry_run,
+        no_progress,
+        quiet,
+    )
+}
+
+/// Pure mode selection. A live progress bar redraws on stderr and would garble
+/// dry-run flow lines printed to a terminal on stdout, so that case is plain.
+pub fn select_mode(
+    stderr_tty: bool,
+    stdout_tty: bool,
+    dry_run: bool,
+    no_progress: bool,
+    quiet: bool,
+) -> Mode {
     if quiet {
         Mode::Quiet
-    } else if no_progress || !std::io::stderr().is_terminal() {
+    } else if no_progress || !stderr_tty || (dry_run && stdout_tty) {
         Mode::Plain
     } else {
         Mode::Interactive

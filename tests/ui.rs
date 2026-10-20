@@ -71,9 +71,28 @@ fn summary_has_rule_table() {
 
 #[test]
 fn mode_selection() {
-    assert_eq!(pick_mode(false, true), Mode::Quiet);
-    assert_eq!(pick_mode(true, true), Mode::Quiet);
-    assert_eq!(pick_mode(true, false), Mode::Plain);
+    assert_eq!(pick_mode(false, true, false), Mode::Quiet);
+    assert_eq!(pick_mode(true, true, false), Mode::Quiet);
+    assert_eq!(pick_mode(true, false, false), Mode::Plain);
+}
+
+#[test]
+fn select_mode_matrix() {
+    // (stderr_tty, stdout_tty, dry_run, no_progress, quiet)
+    assert_eq!(
+        select_mode(true, true, false, false, false),
+        Mode::Interactive
+    );
+    // dry-run printing flows to a terminal: no progress bar
+    assert_eq!(select_mode(true, true, true, false, false), Mode::Plain);
+    // dry-run piped: stdout is clean, bar on stderr is fine
+    assert_eq!(
+        select_mode(true, false, true, false, false),
+        Mode::Interactive
+    );
+    assert_eq!(select_mode(false, false, false, false, false), Mode::Plain);
+    assert_eq!(select_mode(true, true, true, false, true), Mode::Quiet);
+    assert_eq!(select_mode(true, true, false, true, false), Mode::Plain);
 }
 
 #[test]

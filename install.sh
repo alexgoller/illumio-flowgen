@@ -127,17 +127,28 @@ fi
 
 echo "installed $PREFIX/flowgen"
 
-# Sample scenarios go next to the binary tree: <prefix>/../share/flowgen/examples
-examples_dir="$(dirname "$PREFIX")/share/flowgen/examples"
+# Sample scenarios: <prefix>/../share/flowgen/examples when prefix ends in bin,
+# otherwise <prefix>/examples. Failure here is not fatal.
+if [ "$(basename "$PREFIX")" = bin ]; then
+  examples_dir="$(dirname "$PREFIX")/share/flowgen/examples"
+else
+  examples_dir="$PREFIX/examples"
+fi
+install_examples() {
+  as_root mkdir -p "$examples_dir" || return 1
+  for f in "$tmp/$dir"/examples/*.toml; do
+    as_root install -m 0644 "$f" "$examples_dir/$(basename "$f")" || return 1
+  done
+}
 have_examples=no
 for f in "$tmp/$dir"/examples/*.toml; do
   [ -f "$f" ] && have_examples=yes && break
 done
 if [ "$have_examples" = yes ]; then
-  as_root mkdir -p "$examples_dir"
-  for f in "$tmp/$dir"/examples/*.toml; do
-    as_root install -m 0644 "$f" "$examples_dir/$(basename "$f")"
-  done
-  echo "examples: $examples_dir"
+  if install_examples; then
+    echo "examples: $examples_dir"
+  else
+    echo "install.sh: warning: could not install examples to $examples_dir" >&2
+  fi
 fi
 "$PREFIX/flowgen" --version

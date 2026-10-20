@@ -287,3 +287,18 @@ dst_ports = [8080]
     let (_, f) = g.next_flow(SystemTime::now());
     assert_eq!(f.src_addr, f.dst_addr);
 }
+
+#[test]
+fn scenario_hosts_dedups_repeated_subnets_before_limit() {
+    let rule = r#"
+[[rule]]
+name = "r"
+src = ["10.5.0.0/24"]
+dst = ["10.5.0.0/24"]
+proto = "tcp"
+dst_ports = [80]
+"#;
+    let s = Scenario::from_toml(&rule.repeat(9)).unwrap();
+    let hosts = scenario_hosts(&s, Some(IPS_LIMIT)).unwrap();
+    assert_eq!(hosts.len(), 254);
+}

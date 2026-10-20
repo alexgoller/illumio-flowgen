@@ -123,7 +123,7 @@ fn run(args: RunArgs) -> Result<()> {
         seed: args.seed,
     });
     let warnings = scenario.validate()?;
-    let mode = ui::pick_mode(args.no_progress, args.quiet);
+    let mode = ui::pick_mode(args.no_progress, args.quiet, args.dry_run);
     for w in &warnings {
         eprintln!("flowgen: warning: {w}");
     }

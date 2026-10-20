@@ -118,6 +118,20 @@ fn validation_errors() {
         (Box::new(|s| s.rate.period_secs = 0.0), "period_secs"),
         (Box::new(|s| s.rate.amplitude = 1.5), "amplitude"),
         (Box::new(|s| s.target.max_datagram = 100), "max_datagram"),
+        (
+            Box::new(|s| s.rate.flows_per_sec = 1_000_001.0),
+            "flows_per_sec",
+        ),
+        (Box::new(|s| s.rate.period_secs = f64::NAN), "period_secs"),
+        (
+            Box::new(|s| s.rate.burst_multiplier = f64::NAN),
+            "burst_multiplier",
+        ),
+        (Box::new(|s| s.rate.amplitude = f64::NAN), "amplitude"),
+        (
+            Box::new(|s| s.rate.burst_secs = f64::INFINITY),
+            "burst_secs",
+        ),
         (Box::new(|s| s.rules[0].packets = Some([10, 5])), "packets"),
     ];
     for (mutate, needle) in cases {
@@ -203,4 +217,19 @@ fn encoder_options_from_target() {
     assert_eq!(o.observation_domain, 3);
     assert_eq!(o.max_datagram, 1400);
     assert_eq!(o.template_refresh.as_secs(), 30);
+}
+
+#[test]
+fn large_datagram_warns_about_fragmentation() {
+    let mut s = base();
+    s.target.max_datagram = 9000;
+    let warnings = s.validate().unwrap();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("max_datagram = 9000") && w.contains("1472")),
+        "{warnings:?}"
+    );
+    s.target.max_datagram = 1472;
+    assert!(s.validate().unwrap().is_empty());
 }
