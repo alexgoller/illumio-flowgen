@@ -69,3 +69,25 @@ fn v5_respects_small_max_datagram() {
 fn v5_empty_input_produces_nothing() {
     assert!(encoder(1400).encode(&[], t0()).is_empty());
 }
+
+#[test]
+fn v5_default_1400_fits_28_records_per_datagram() {
+    // (1400-24)/48 = 28; 28 records = 24 + 28*48 = 1368 bytes.
+    let dgs = encoder(1400).encode(&sample_records(65), t0());
+    let counts: Vec<u16> = dgs
+        .iter()
+        .map(|d| u16::from_be_bytes([d[2], d[3]]))
+        .collect();
+    assert_eq!(counts, vec![28, 28, 9]);
+    assert!(dgs.iter().all(|d| d.len() <= 1400));
+}
+
+#[test]
+fn v5_flow_sequence_persists_across_encode_calls() {
+    let mut enc = encoder(1400);
+    let first = enc.encode(&sample_records(5), t0());
+    let second = enc.encode(&sample_records(2), t0());
+    let seq = |d: &Vec<u8>| u32::from_be_bytes([d[16], d[17], d[18], d[19]]);
+    assert_eq!(seq(&first[0]), 0);
+    assert_eq!(seq(&second[0]), 5);
+}
