@@ -1,0 +1,28 @@
+# Sample: functional load test, 4000 flows/s between two /16 networks. NOT meant for PCE visibility:
+# it uses ~131k hosts, so `flowgen ips` refuses it without --all. Flowlink/PCE handle about 10K unique flows/s in total.
+# Use it to check collector throughput and datagram packing, not to build a demo map.
+# Run: flowgen run -c /usr/share/doc/flowgen/examples/load-test.toml --collector <flowlink-host>
+name = "load-test"
+
+[target]
+max_datagram = 1400
+
+[rate]
+flows_per_sec = 4000
+shape = "constant"
+
+[[rule]]
+name = "tcp-services"
+src = ["10.100.0.0/16"]
+dst = ["10.101.0.0/16"]
+proto = "tcp"
+dst_ports = [80, 443, 8080, 3306]  # http, https, http-alt, mysql
+weight = 7
+
+[[rule]]
+name = "udp-services"
+src = ["10.100.0.0/16"]
+dst = ["10.101.0.0/16"]
+proto = "udp"
+dst_ports = [53, 123]              # dns, ntp
+weight = 3

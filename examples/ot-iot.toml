@@ -1,0 +1,59 @@
+# Sample: OT/IoT segment with industrial protocols and small flows. HMIs, historian and an engineering workstation
+# talk to PLCs; sensors publish to an MQTT broker. Illumination shows the PLCs as a tightly scoped, read-mostly zone.
+# Run: flowgen run -c /usr/share/doc/flowgen/examples/ot-iot.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/ot-iot.toml
+name = "ot-iot"
+
+[rate]
+flows_per_sec = 30
+shape = "constant"
+
+[[rule]]
+name = "hmi-to-plc"
+src = ["10.50.1.0/29"]             # HMIs
+dst = ["10.50.2.0/28"]             # PLCs
+proto = "tcp"
+dst_ports = [502, 102, 44818]      # modbus, s7comm, ethernet/ip
+weight = 10
+packets = [3, 40]
+bytes_per_packet = [60, 200]
+
+[[rule]]
+name = "historian-to-plc"
+src = ["10.50.3.10"]
+dst = ["10.50.2.0/28"]
+proto = "tcp"
+dst_ports = [502]                  # modbus
+weight = 6
+packets = [3, 40]
+bytes_per_packet = [60, 200]
+
+[[rule]]
+name = "engineering-to-plc"
+src = ["10.50.5.20"]               # engineering workstation
+dst = ["10.50.2.0/28"]
+proto = "tcp"
+dst_ports = [502, 102]             # modbus, s7comm
+weight = 1
+packets = [10, 120]
+bytes_per_packet = [60, 300]
+
+[[rule]]
+name = "sensors-to-mqtt"
+src = ["10.50.4.0/28"]             # sensors
+dst = ["10.50.4.100"]              # mqtt broker
+proto = "tcp"
+dst_ports = [1883, 8883]           # mqtt, mqtt over tls
+weight = 12
+packets = [2, 10]
+bytes_per_packet = [60, 150]
+
+[[rule]]
+name = "ntp"
+src = ["10.50.1.0/29", "10.50.2.0/28", "10.50.3.10", "10.50.4.0/28", "10.50.5.20"]
+dst = ["10.50.0.123"]              # OT time server
+proto = "udp"
+dst_ports = [123]                  # ntp
+weight = 2
+packets = [1, 2]
+bytes_per_packet = [76, 90]

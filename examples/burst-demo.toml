@@ -1,0 +1,29 @@
+# Sample: small two-tier app with a bursty rate, for demoing traffic spikes on the progress display.
+# Base 20 flows/s; each second has a 10% chance to start a 15 s burst at 8x (160 flows/s).
+# In Illumination the map stays the same while Explorer shows flow-count spikes over time.
+# Run: flowgen run -c /usr/share/doc/flowgen/examples/burst-demo.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/burst-demo.toml
+name = "burst-demo"
+
+[rate]
+flows_per_sec = 20
+shape = "burst"
+burst_chance = 0.1
+burst_multiplier = 8
+burst_secs = 15
+
+[[rule]]
+name = "clients-to-web"
+src = ["192.168.70.0/28"]
+dst = ["10.70.1.0/30"]             # 2 web servers
+proto = "tcp"
+dst_ports = [443]                  # https
+weight = 6
+
+[[rule]]
+name = "web-to-db"
+src = ["10.70.1.0/30"]
+dst = ["10.70.2.10"]
+proto = "tcp"
+dst_ports = [3306]                 # mysql
+weight = 3

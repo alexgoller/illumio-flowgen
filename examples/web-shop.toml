@@ -1,0 +1,79 @@
+# Sample: three-tier e-commerce shop (internet -> LB -> web -> app -> data/payment) with shared DNS/NTP.
+# Shows a classic app tier map in Illumination; the sine rate gives a daily-load-like wave.
+# Run: flowgen run -c /usr/share/doc/flowgen/examples/web-shop.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/web-shop.toml
+name = "web-shop"
+
+[rate]
+flows_per_sec = 80
+shape = "sine"
+period_secs = 600
+amplitude = 0.4
+
+[[rule]]
+name = "internet-to-lb"
+src = ["192.168.20.0/27"]
+dst = ["10.20.1.10/31"]            # 2 load balancers
+proto = "tcp"
+dst_ports = [443]                  # https
+weight = 10
+
+[[rule]]
+name = "lb-to-web"
+src = ["10.20.1.10/31"]
+dst = ["10.20.2.0/29"]             # web tier
+proto = "tcp"
+dst_ports = [8443]                 # https (app port)
+weight = 8
+
+[[rule]]
+name = "web-to-app"
+src = ["10.20.2.0/29"]
+dst = ["10.20.3.0/29"]             # app tier
+proto = "tcp"
+dst_ports = [8080]                 # http (app port)
+weight = 6
+
+[[rule]]
+name = "app-to-postgres"
+src = ["10.20.3.0/29"]
+dst = ["10.20.4.10"]
+proto = "tcp"
+dst_ports = [5432]                 # postgresql
+weight = 4
+
+[[rule]]
+name = "app-to-redis"
+src = ["10.20.3.0/29"]
+dst = ["10.20.4.20"]
+proto = "tcp"
+dst_ports = [6379]                 # redis
+weight = 3
+
+[[rule]]
+name = "app-to-payment-api"
+src = ["10.20.3.0/29"]
+dst = ["10.20.5.10"]
+proto = "tcp"
+dst_ports = [443]                  # https
+weight = 2
+
+[[rule]]
+name = "dns"
+src = ["10.20.1.10/31", "10.20.2.0/29", "10.20.3.0/29", "10.20.4.10", "10.20.4.20"]
+dst = ["10.20.0.53"]
+proto = "udp"
+dst_ports = [53]                   # dns
+weight = 2
+packets = [1, 2]
+bytes_per_packet = [60, 200]
+
+[[rule]]
+name = "ntp"
+src = ["10.20.1.10/31", "10.20.2.0/29", "10.20.3.0/29", "10.20.4.10", "10.20.4.20"]
+dst = ["10.20.0.123"]
+proto = "udp"
+dst_ports = [123]                  # ntp
+weight = 1
+packets = [1, 2]
+bytes_per_packet = [76, 90]

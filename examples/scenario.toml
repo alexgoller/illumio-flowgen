@@ -1,6 +1,6 @@
 # flowgen scenario example. Run with:
 #   flowgen run -c scenario.toml
-# Any [target] value can be overridden on the command line (--collector, --protocol, --rate, --seed).
+# Some settings can be overridden on the command line: --collector, --protocol, --rate, --seed.
 #
 # PCE visibility: Flowlink flows only show up if at least one IP of each flow
 # belongs to a managed or unmanaged workload. List every IP this file can emit with:
