@@ -1,8 +1,8 @@
 # Sample: ransomware-style lateral movement for segmentation demos. Normal office traffic runs in the background;
 # the compromised workstation 10.40.1.5 sweeps the server subnet every 45 s and spreads over SMB/RDP.
 # In Illumination/Explorer look for 10.40.1.5 reaching many servers on 22/135/139/445/3389/5985 - then block it with a rule.
-# Run: flowgen run -c /usr/share/doc/flowgen/examples/lateral-movement.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/lateral-movement.toml
+# Run: flowgen run -c /usr/share/flowgen/examples/lateral-movement.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/lateral-movement.toml
 name = "lateral-movement"
 
 [rate]

@@ -1,8 +1,8 @@
 # Sample: Windows estate. Workstations and member servers talk to domain controllers (Kerberos, LDAP, RPC, SMB, DNS),
 # workstations use file servers, and one admin jump host reaches servers over RDP/WinRM.
 # In Illumination look for the domain controllers as the hub and the jump host as the only admin-protocol source.
-# Run: flowgen run -c /usr/share/doc/flowgen/examples/active-directory.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/active-directory.toml
+# Run: flowgen run -c /usr/share/flowgen/examples/active-directory.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/active-directory.toml
 name = "active-directory"
 
 [rate]

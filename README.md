@@ -40,7 +40,7 @@ Ctrl-C stops gracefully and prints a summary.
 The release ships 7 sample scenarios plus the annotated `scenario.toml`. Locations by install method:
 
 - `install.sh`: `/usr/local/share/flowgen/examples/` (`<prefix>/../share/flowgen/examples/` when the prefix ends in `bin`, otherwise `<prefix>/examples/`; e.g. `~/.local/share/flowgen/examples/` for `--prefix ~/.local/bin`)
-- `.deb` / `.rpm`: `/usr/share/doc/flowgen/examples/`
+- `.deb` / `.rpm`: `/usr/share/flowgen/examples/`
 - tarball: `examples/` inside the archive
 - macOS `.pkg`: binary only; use the tarball or the repository for samples
 - repository: `examples/`
@@ -62,8 +62,8 @@ The samples use disjoint subnets, so several can run at once against one Flowlin
 
 ```sh
 flowgen run -c /usr/local/share/flowgen/examples/web-shop.toml --collector flowlink.lab   # install.sh
-flowgen run -c /usr/share/doc/flowgen/examples/web-shop.toml --collector flowlink.lab     # .deb / .rpm
-flowgen ips -c /usr/share/doc/flowgen/examples/web-shop.toml     # IPs to create as unmanaged workloads
+flowgen run -c /usr/share/flowgen/examples/web-shop.toml --collector flowlink.lab     # .deb / .rpm
+flowgen ips -c /usr/share/flowgen/examples/web-shop.toml     # IPs to create as unmanaged workloads
 ```
 
 ## Making flows visible in the PCE

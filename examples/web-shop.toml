@@ -1,7 +1,7 @@
 # Sample: three-tier e-commerce shop (internet -> LB -> web -> app -> data/payment) with shared DNS/NTP.
 # Shows a classic app tier map in Illumination; the sine rate gives a daily-load-like wave.
-# Run: flowgen run -c /usr/share/doc/flowgen/examples/web-shop.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/web-shop.toml
+# Run: flowgen run -c /usr/share/flowgen/examples/web-shop.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/web-shop.toml
 name = "web-shop"
 
 [rate]

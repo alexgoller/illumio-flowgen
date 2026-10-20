@@ -1,7 +1,7 @@
 # Sample: OT/IoT segment with industrial protocols and small flows. HMIs, historian and an engineering workstation
 # talk to PLCs; sensors publish to an MQTT broker. Illumination shows the PLCs as a tightly scoped zone reached by a few known sources.
-# Run: flowgen run -c /usr/share/doc/flowgen/examples/ot-iot.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/ot-iot.toml
+# Run: flowgen run -c /usr/share/flowgen/examples/ot-iot.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/ot-iot.toml
 name = "ot-iot"
 
 [rate]

@@ -1,8 +1,8 @@
 # Sample: Kubernetes cluster. Workers talk to a 3-node control plane (API server, etcd, kubelet), an ingress LB
 # reaches NodePorts, pods talk east-west between workers, and everything resolves through CoreDNS.
 # In Illumination look for the control plane as a small, well-defined zone and the worker mesh on 8080/9090.
-# Run: flowgen run -c /usr/share/doc/flowgen/examples/kubernetes.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/doc/flowgen/examples/kubernetes.toml
+# Run: flowgen run -c /usr/share/flowgen/examples/kubernetes.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml
 name = "kubernetes"
 
 [rate]

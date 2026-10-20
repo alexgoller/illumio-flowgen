@@ -86,7 +86,7 @@ jobs:
             dpkg -i /dist/flowgen_*_${{ matrix.debarch }}.deb
             flowgen --version
             flowgen run --preset three-tier --dry-run --duration 2s --no-progress > /tmp/out && test -s /tmp/out
-            test -f /usr/share/doc/flowgen/examples/scenario.toml'
+            test -f /usr/share/flowgen/examples/scenario.toml'
       - name: .rpm on Rocky Linux
         run: |
           docker run --rm -v "$PWD/dist:/dist" rockylinux:9 sh -ec '

@@ -35,12 +35,12 @@ extended-description = "Generates NetFlow v5/v9 and IPFIX traffic for testing an
 assets = [
   ["target/release/flowgen", "usr/bin/", "755"],
   ["README.md", "usr/share/doc/flowgen/README.md", "644"],
-  ["examples/*.toml", "usr/share/doc/flowgen/examples/", "644"],
+  ["examples/*.toml", "usr/share/flowgen/examples/", "644"],
 ]
 
 [package.metadata.generate-rpm]
 assets = [
   { source = "target/release/flowgen", dest = "/usr/bin/flowgen", mode = "755" },
   { source = "README.md", dest = "/usr/share/doc/flowgen/README.md", mode = "644", doc = true },
-  { source = "examples/*.toml", dest = "/usr/share/doc/flowgen/examples/", mode = "644", doc = true },
+  { source = "examples/*.toml", dest = "/usr/share/flowgen/examples/", mode = "644" },
 ]
