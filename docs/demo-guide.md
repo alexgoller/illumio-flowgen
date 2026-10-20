@@ -28,7 +28,21 @@ Samples (in the examples directory, see [quickstart](quickstart.md#1-install)):
 
 ## 2. Create the workloads
 
-The PCE shows a flow only if at least one of its IPs is a managed or unmanaged workload.
+The PCE shows a flow only if at least one of its IPs is a managed or unmanaged workload. flowgen can export a labelled CSV for [workloader](https://github.com/brian1917/workloader) (`wkld-import`), which creates the unmanaged workloads for you:
+
+```sh
+flowgen ips --preset three-tier --format workloader > three-tier.csv
+workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change
+workloader wkld-import three-tier.csv --umwl --update-pce --no-prompt
+```
+
+- `wkld-import` matches rows on hostname; `--umwl` creates unmanaged workloads for rows with no match. Without `--update-pce` it only logs what would change; `--no-prompt` skips the confirmation.
+- Label types (role/app/env/loc by default, plus any custom keys in your `[[host]]` labels) must already exist in the PCE. Label values are created automatically.
+- Hostnames are derived from the IPs (`web-10-1-1-9`), so re-running updates the same workloads. The `description` column is `flowgen <scenario>`.
+- Presets and samples ship with labels; for your own scenarios add `[[host]]` groups, see [scenarios.md](scenarios.md#host-labels).
+- The same 4096-host limit applies; pass `--all` to override.
+
+Without workloader, list the IPs and create unmanaged workloads yourself:
 
 ```sh
 flowgen ips --preset scan-demo > ips.txt           # one IP per line, sorted, deduplicated
@@ -36,7 +50,7 @@ flowgen ips -c /usr/share/flowgen/examples/lateral-movement.toml > ips.txt
 wc -l ips.txt
 ```
 
-Create unmanaged workloads (or a workload import) from `ips.txt`, with labels that match your story (role, app, env). Scan sources are included in the list. `flowgen ips` refuses scenarios with more than 4096 hosts unless you pass `--all`.
+Scan sources are included in the list. `flowgen ips` refuses scenarios with more than 4096 hosts unless you pass `--all`.
 
 ## 3. Flowlink listener
 
@@ -108,7 +122,7 @@ Tip: `--seed 42` makes the random choices (hosts, ports, sizes) repeat between r
 - [ ] Flowlink listener parser type matches protocol (netflow for v5/v9, ipfix) and port.
 - [ ] `remote_addrs` unset, or contains the exporter source IP flowgen printed.
 - [ ] UDP port reachable from the flowgen host (firewall / security group).
-- [ ] Unmanaged workloads exist for every IP in `flowgen ips` (at least one side of each flow).
+- [ ] Workloads exist for every IP in `flowgen ips` (`workloader wkld-import ... --umwl --update-pce` done; at least one side of each flow).
 - [ ] `illumio-flowlink-ctl ... --debug` showed records.
 - [ ] flowgen started >= 1 aggregation interval ago; status line shows `errs 0`.
 - [ ] Flows visible in Explorer for the last interval.
