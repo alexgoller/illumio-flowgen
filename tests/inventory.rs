@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
 
 use flowgen::config::HostGroup;
-use flowgen::inventory::resolve;
+use flowgen::inventory::{HostInfo, resolve, write_workloader_csv};
 use ipnet::Ipv4Net;
 
 fn group(nets: &[&str], labels: &[(&str, &str)], prefix: Option<&str>) -> HostGroup {
@@ -75,4 +75,73 @@ fn ip_outside_all_groups_gets_defaults() {
     let h = resolve(&groups, IP);
     assert_eq!(h.hostname, "fg-10-1-1-9");
     assert!(h.labels.is_empty());
+}
+
+fn host(last: u8, labels: &[(&str, &str)]) -> HostInfo {
+    HostInfo {
+        ip: Ipv4Addr::new(10, 0, 0, last),
+        hostname: format!("fg-10-0-0-{last}"),
+        labels: labels
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+    }
+}
+
+fn csv(desc: &str, hosts: &[HostInfo]) -> String {
+    let mut buf = Vec::new();
+    write_workloader_csv(&mut buf, desc, hosts).unwrap();
+    String::from_utf8(buf).unwrap()
+}
+
+#[test]
+fn csv_header_without_custom_keys() {
+    let out = csv("flowgen", &[host(1, &[("role", "web")])]);
+    assert_eq!(
+        out.lines().next().unwrap(),
+        "hostname,name,interfaces,description,role,app,env,loc"
+    );
+    assert_eq!(
+        out.lines().nth(1).unwrap(),
+        "fg-10-0-0-1,fg-10-0-0-1,10.0.0.1,flowgen,web,,,"
+    );
+}
+
+#[test]
+fn csv_header_with_custom_keys_sorted() {
+    let out = csv(
+        "d",
+        &[host(1, &[("zone", "z")]), host(2, &[("owner", "o")])],
+    );
+    let mut lines = out.lines();
+    assert_eq!(
+        lines.next().unwrap(),
+        "hostname,name,interfaces,description,role,app,env,loc,owner,zone"
+    );
+    assert_eq!(
+        lines.next().unwrap(),
+        "fg-10-0-0-1,fg-10-0-0-1,10.0.0.1,d,,,,,,z"
+    );
+    assert_eq!(
+        lines.next().unwrap(),
+        "fg-10-0-0-2,fg-10-0-0-2,10.0.0.2,d,,,,,o,"
+    );
+}
+
+#[test]
+fn csv_escapes_fields() {
+    let out = csv("a,b", &[host(1, &[("app", "say \"hi\"")])]);
+    let row = out.lines().nth(1).unwrap();
+    assert_eq!(
+        row,
+        "fg-10-0-0-1,fg-10-0-0-1,10.0.0.1,\"a,b\",,\"say \"\"hi\"\"\",,"
+    );
+}
+
+#[test]
+fn csv_no_hosts_is_header_only() {
+    assert_eq!(
+        csv("x", &[]),
+        "hostname,name,interfaces,description,role,app,env,loc\n"
+    );
 }

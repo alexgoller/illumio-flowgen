@@ -97,3 +97,29 @@ fn config_and_preset_are_mutually_exclusive() {
     let o = flowgen(&["run", "--dry-run"]);
     assert!(!o.status.success());
 }
+
+const WORKLOADER_HEADER: &str = "hostname,name,interfaces,description,role,app,env,loc";
+
+#[test]
+fn ips_workloader_format() {
+    let plain = flowgen(&["ips", "--preset", "three-tier"]);
+    let o = flowgen(&["ips", "--preset", "three-tier", "--format", "workloader"]);
+    assert!(o.status.success(), "{}", stderr(&o));
+    let lines: Vec<String> = stdout(&o).lines().map(String::from).collect();
+    assert_eq!(lines[0], WORKLOADER_HEADER);
+    assert_eq!(lines.len(), stdout(&plain).lines().count() + 1);
+}
+
+#[test]
+fn ips_plain_format_explicit_matches_default() {
+    let a = flowgen(&["ips", "--preset", "three-tier"]);
+    let b = flowgen(&["ips", "--preset", "three-tier", "--format", "plain"]);
+    assert_eq!(stdout(&a), stdout(&b));
+    assert_eq!(stdout(&a).lines().next().unwrap(), "10.1.0.10");
+}
+
+#[test]
+fn ips_bogus_format_fails() {
+    let o = flowgen(&["ips", "--preset", "three-tier", "--format", "bogus"]);
+    assert!(!o.status.success());
+}

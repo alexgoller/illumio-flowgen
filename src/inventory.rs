@@ -47,3 +47,49 @@ pub fn resolve(groups: &[HostGroup], ip: Ipv4Addr) -> HostInfo {
         labels,
     }
 }
+
+const STANDARD_LABELS: [&str; 4] = ["role", "app", "env", "loc"];
+
+fn csv_field(s: &str) -> String {
+    if s.contains([',', '"', '\r', '\n']) {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+/// Write the CSV consumed by `workloader wkld-import <file> --umwl`.
+pub fn write_workloader_csv<W: std::io::Write>(
+    w: &mut W,
+    description: &str,
+    hosts: &[HostInfo],
+) -> std::io::Result<()> {
+    let mut columns: Vec<&str> = STANDARD_LABELS.to_vec();
+    let extra: std::collections::BTreeSet<&str> = hosts
+        .iter()
+        .flat_map(|h| h.labels.keys().map(String::as_str))
+        .filter(|k| !STANDARD_LABELS.contains(k))
+        .collect();
+    columns.extend(extra);
+
+    let mut header = vec!["hostname", "name", "interfaces", "description"];
+    header.extend(&columns);
+    let header: Vec<String> = header.into_iter().map(csv_field).collect();
+    writeln!(w, "{}", header.join(","))?;
+
+    for h in hosts {
+        let mut row = vec![
+            csv_field(&h.hostname),
+            csv_field(&h.hostname),
+            h.ip.to_string(),
+            csv_field(description),
+        ];
+        row.extend(
+            columns
+                .iter()
+                .map(|c| csv_field(h.labels.get(*c).map_or("", String::as_str))),
+        );
+        writeln!(w, "{}", row.join(","))?;
+    }
+    Ok(())
+}
