@@ -26,3 +26,21 @@ netflow_parser = { version = "1.0.6", features = ["netflow_common"] }
 lto = "thin"
 strip = true
 codegen-units = 1
+
+[package.metadata.deb]
+maintainer = "Alex Goller"
+section = "net"
+priority = "optional"
+extended-description = "Generates NetFlow v5/v9 and IPFIX traffic for testing and demoing Illumio Flowlink."
+assets = [
+  ["target/release/flowgen", "usr/bin/", "755"],
+  ["README.md", "usr/share/doc/flowgen/README.md", "644"],
+  ["examples/*.toml", "usr/share/doc/flowgen/examples/", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/flowgen", dest = "/usr/bin/flowgen", mode = "755" },
+  { source = "README.md", dest = "/usr/share/doc/flowgen/README.md", mode = "644", doc = true },
+  { source = "examples/*.toml", dest = "/usr/share/doc/flowgen/examples/", mode = "644", doc = true },
+]
