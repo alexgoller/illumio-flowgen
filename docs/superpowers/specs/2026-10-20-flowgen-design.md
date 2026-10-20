@@ -151,7 +151,7 @@ measured flows/s over the last ~5 s). Rendering lives in a separate
 `ui` module using `indicatif`:
 
 - **Interactive (stderr is a TTY)**:
-  - Header line at start: protocol, collector, scenario/preset name, seed.
+  - Header line at start: protocol, collector, local source IP (for Flowlink `remote_addrs`), scenario/preset name, seed, and a hint that flows show up in the PCE after Flowlink's aggregation interval (5–60 min, default 10).
   - With `--duration`: a progress bar for elapsed/total time with ETA.
     Without: a spinner with elapsed time.
   - Live status line under it, refreshed ~4×/s:
