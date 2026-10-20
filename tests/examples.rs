@@ -104,3 +104,26 @@ fn demo_samples_have_pairwise_disjoint_hosts() {
         }
     }
 }
+
+fn assert_all_labelled(name: &str, s: &Scenario) {
+    let hosts = scenario_hosts(s, None).unwrap();
+    assert!(!hosts.is_empty(), "{name}: no hosts");
+    for ip in hosts {
+        let info = flowgen::inventory::resolve(&s.hosts, ip);
+        for key in ["role", "app", "env"] {
+            assert!(
+                info.labels.get(key).is_some_and(|v| !v.is_empty()),
+                "{name}: {ip} has no {key} label ({:?})",
+                info.labels
+            );
+        }
+    }
+}
+
+#[test]
+fn samples_and_reference_label_every_host() {
+    for stem in SAMPLES.iter().copied().chain(["scenario"]) {
+        let s = Scenario::from_file(&path(stem)).unwrap();
+        assert_all_labelled(stem, &s);
+    }
+}

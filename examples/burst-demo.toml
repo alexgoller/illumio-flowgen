@@ -12,6 +12,26 @@ burst_chance = 0.1
 burst_multiplier = 8
 burst_secs = 15
 
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.70.0.0/16"]
+labels = { app = "storefront", env = "prod" }
+
+[[host]]
+nets = ["192.168.70.0/28"]
+labels = { app = "storefront", env = "prod", role = "client" }
+hostname_prefix = "client"
+
+[[host]]
+nets = ["10.70.1.0/30"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.70.2.10"]
+labels = { role = "db" }
+hostname_prefix = "db"
+
 [[rule]]
 name = "clients-to-web"
 src = ["192.168.70.0/28"]

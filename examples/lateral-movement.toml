@@ -9,6 +9,43 @@ name = "lateral-movement"
 flows_per_sec = 40
 shape = "constant"
 
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.40.0.0/16"]
+labels = { app = "office", env = "prod", loc = "hq" }
+
+[[host]]
+nets = ["10.40.1.0/28"]
+labels = { role = "workstation" }
+hostname_prefix = "ws"
+
+# the compromised workstation (scan source)
+[[host]]
+nets = ["10.40.1.5"]
+labels = { role = "workstation" }
+hostname_prefix = "ws-compromised"
+
+# server subnet (scan target)
+[[host]]
+nets = ["10.40.2.0/28"]
+labels = { role = "server" }
+hostname_prefix = "srv"
+
+[[host]]
+nets = ["10.40.2.10"]
+labels = { role = "file-server" }
+hostname_prefix = "fs"
+
+[[host]]
+nets = ["10.40.3.8"]
+labels = { role = "proxy" }
+hostname_prefix = "proxy"
+
+[[host]]
+nets = ["10.40.3.53"]
+labels = { role = "dns" }
+hostname_prefix = "dns"
+
 [[rule]]
 name = "workstations-to-file-server"
 src = ["10.40.1.0/28"]             # workstations (includes the compromised 10.40.1.5)

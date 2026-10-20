@@ -8,6 +8,46 @@ name = "ot-iot"
 flows_per_sec = 30
 shape = "constant"
 
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.50.0.0/16"]
+labels = { app = "plant", env = "prod", loc = "plant1" }
+
+[[host]]
+nets = ["10.50.0.123"]
+labels = { role = "ntp" }
+hostname_prefix = "ntp"
+
+[[host]]
+nets = ["10.50.1.0/29"]
+labels = { role = "hmi" }
+hostname_prefix = "hmi"
+
+[[host]]
+nets = ["10.50.2.0/28"]
+labels = { role = "plc" }
+hostname_prefix = "plc"
+
+[[host]]
+nets = ["10.50.3.10"]
+labels = { role = "historian" }
+hostname_prefix = "historian"
+
+[[host]]
+nets = ["10.50.4.0/28"]
+labels = { role = "sensor" }
+hostname_prefix = "sensor"
+
+[[host]]
+nets = ["10.50.4.100"]
+labels = { role = "mqtt-broker" }
+hostname_prefix = "mqtt"
+
+[[host]]
+nets = ["10.50.5.20"]
+labels = { role = "engineering" }
+hostname_prefix = "eng"
+
 [[rule]]
 name = "hmi-to-plc"
 src = ["10.50.1.0/29"]             # HMIs

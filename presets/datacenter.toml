@@ -5,6 +5,32 @@ name = "datacenter"
 flows_per_sec = 100
 shape = "constant"
 
+# Labels for `flowgen ips --format workloader`
+[[host]]
+nets = ["10.10.0.0/16"]
+labels = { app = "erp", env = "prod", loc = "dc1" }
+
+[[host]]
+nets = ["10.10.1.0/28"]
+labels = { role = "web" }
+hostname_prefix = "web"
+
+[[host]]
+nets = ["10.10.2.0/28"]
+labels = { role = "app" }
+hostname_prefix = "app"
+
+[[host]]
+nets = ["10.10.3.0/28"]
+labels = { role = "db" }
+hostname_prefix = "db"
+
+# shared services: kafka, ldap, admin ssh
+[[host]]
+nets = ["10.10.4.0/28"]
+labels = { role = "svc", app = "infra" }
+hostname_prefix = "svc"
+
 [[rule]]
 name = "web-to-app"
 src = ["10.10.1.0/28"]

@@ -48,3 +48,21 @@ fn example_scenario_is_valid() {
     s.validate().unwrap();
     assert!(s.target.collector.is_some());
 }
+
+#[test]
+fn presets_label_every_host() {
+    for p in PRESETS {
+        let s = Scenario::from_toml(p.toml).unwrap();
+        let hosts = scenario_hosts(&s, None).unwrap();
+        for ip in hosts {
+            let info = flowgen::inventory::resolve(&s.hosts, ip);
+            for key in ["role", "app", "env"] {
+                assert!(
+                    info.labels.get(key).is_some_and(|v| !v.is_empty()),
+                    "{}: {ip} has no {key} label",
+                    p.name
+                );
+            }
+        }
+    }
+}
