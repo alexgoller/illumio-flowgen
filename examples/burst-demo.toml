@@ -2,7 +2,8 @@
 # Base 20 flows/s; each second has a 10% chance to start a 15 s burst at 8x (160 flows/s).
 # In Illumination the map stays the same while Explorer shows flow-count spikes over time.
 # Run: flowgen run -c /usr/share/flowgen/examples/burst-demo.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/burst-demo.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/burst-demo.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "burst-demo"
 
 [rate]

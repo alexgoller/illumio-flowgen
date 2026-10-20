@@ -32,7 +32,7 @@ The PCE shows a flow only if at least one of its IPs is a managed or unmanaged w
 
 ```sh
 flowgen ips --preset three-tier --format workloader > three-tier.csv
-workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change
+workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change, writes nothing without --update-pce
 workloader wkld-import three-tier.csv --umwl --update-pce --no-prompt
 ```
 

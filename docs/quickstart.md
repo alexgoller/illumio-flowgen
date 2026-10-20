@@ -86,10 +86,10 @@ You should see records with the preset's IPs (10.1.x.x, 192.168.10.x). Nothing p
 1. Create labelled unmanaged workloads for the IPs (46 for `three-tier`) with [workloader](https://github.com/brian1917/workloader):
    ```sh
    flowgen ips --preset three-tier --format workloader > three-tier.csv
-   workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change
+   workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change, writes nothing without --update-pce
    workloader wkld-import three-tier.csv --umwl --update-pce --no-prompt
    ```
-   The PCE shows a Flowlink flow only if at least one IP of the flow is a managed or unmanaged workload. Label types (role/app/env/loc) must exist in the PCE; values are created. Details in [demo-guide.md](demo-guide.md#2-create-the-workloads). Plain IP list instead: `flowgen ips --preset three-tier`.
+   The PCE shows a Flowlink flow only if at least one IP of the flow is a managed or unmanaged workload. Label types (role/app/env/loc plus any custom keys you use) must exist in the PCE; values are created. Details in [demo-guide.md](demo-guide.md#2-create-the-workloads). Plain IP list instead: `flowgen ips --preset three-tier`.
 2. Wait. Flowlink posts to the PCE every `aggregation_minutes` (default 10, minimum 5). Expect the first flows in Illumination / Explorer after up to one interval.
 3. Open Explorer (or Illumination) and filter on the workloads you created.
 

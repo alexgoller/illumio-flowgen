@@ -123,3 +123,33 @@ fn ips_bogus_format_fails() {
     let o = flowgen(&["ips", "--preset", "three-tier", "--format", "bogus"]);
     assert!(!o.status.success());
 }
+
+#[test]
+fn ips_exits_zero_on_broken_pipe() {
+    use std::io::{BufRead, BufReader};
+    use std::process::Stdio;
+    for fmt in ["plain", "workloader"] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_flowgen"))
+            .args([
+                "ips",
+                "-c",
+                "examples/load-test.toml",
+                "--all",
+                "--format",
+                fmt,
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut line = String::new();
+        BufReader::new(child.stdout.take().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        assert!(!line.is_empty(), "{fmt}: no output");
+        // the reader (and the pipe) is dropped here, so further writes hit EPIPE
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success(), "{fmt}: {:?}", out.status);
+        assert!(out.stderr.is_empty(), "{fmt}: {}", stderr(&out));
+    }
+}

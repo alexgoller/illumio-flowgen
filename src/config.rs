@@ -369,12 +369,18 @@ impl Scenario {
             if host.nets.is_empty() {
                 bail!("{ctx}: nets must not be empty");
             }
-            if host
-                .labels
-                .iter()
-                .any(|(k, v)| k.trim().is_empty() || v.trim().is_empty())
-            {
-                bail!("{ctx}: label keys and values must not be empty");
+            for (k, v) in &host.labels {
+                if k.trim().is_empty() || v.trim().is_empty() || k.trim() != k || v.trim() != v {
+                    bail!(
+                        "{ctx}: label keys and values must not be empty or have surrounding whitespace"
+                    );
+                }
+                if RESERVED_LABEL_KEYS
+                    .iter()
+                    .any(|r| r.eq_ignore_ascii_case(k))
+                {
+                    bail!("{ctx}: label key '{k}' is reserved");
+                }
             }
             if let Some(p) = &host.hostname_prefix
                 && (p.is_empty()
@@ -388,6 +394,16 @@ impl Scenario {
         Ok(warnings)
     }
 }
+
+/// CSV columns of the workloader export; a label with one of these keys would clash.
+const RESERVED_LABEL_KEYS: [&str; 6] = [
+    "hostname",
+    "name",
+    "interfaces",
+    "description",
+    "href",
+    "public_ip",
+];
 
 fn check_multicast<'a>(ctx: &str, nets: impl Iterator<Item = &'a Ipv4Net>) -> Result<()> {
     for net in nets {

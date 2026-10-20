@@ -98,10 +98,11 @@ flowgen ips -c /usr/share/flowgen/examples/web-shop.toml --format workloader > w
 3. **Workloads for the IPs.** The PCE shows Flowlink flows only when at least one IP of a flow is a managed or unmanaged workload. `flowgen ips --preset three-tier` lists every IP a scenario can emit. To create labelled unmanaged workloads with [workloader](https://github.com/brian1917/workloader):
    ```sh
    flowgen ips --preset three-tier --format workloader > three-tier.csv
-   workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change
+   workloader wkld-import three-tier.csv --umwl            # dry run: logs what would change, writes nothing without --update-pce
    workloader wkld-import three-tier.csv --umwl --update-pce --no-prompt
    ```
    Label types (role/app/env/loc, plus custom keys) must exist in the PCE; values are created. Labels come from optional `[[host]]` tables, see [scenarios.md](docs/scenarios.md#host-labels).
+   Scenario files that use `[[host]]` need flowgen 0.2.0 or later.
 4. **Wait one aggregation interval.** Flowlink posts to the PCE every `aggregation_minutes` (default 10, minimum 5).
 
 ## Scenario files

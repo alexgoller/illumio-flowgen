@@ -2,7 +2,8 @@
 # workstations use file servers, and one admin jump host reaches servers over RDP/WinRM.
 # In Illumination look for the domain controllers as the hub and the jump host as the only admin-protocol source.
 # Run: flowgen run -c /usr/share/flowgen/examples/active-directory.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/active-directory.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/active-directory.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "active-directory"
 
 [rate]

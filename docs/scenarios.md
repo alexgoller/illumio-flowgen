@@ -100,6 +100,8 @@ hostname_prefix = "db"
 
 **CSV columns** (`flowgen ips --format workloader`): `hostname,name,interfaces,description,role,app,env,loc`, then any other label keys sorted. `name` equals the hostname, `interfaces` is the bare IP (workloader names the interface `umwl`), `description` is `flowgen <scenario name>`. Empty cells leave existing PCE values unchanged.
 
+Output of `flowgen ips --preset three-tier --format workloader` (the values come from that preset, not from the TOML example above):
+
 ```
 hostname,name,interfaces,description,role,app,env,loc
 dns-10-1-0-10,dns-10-1-0-10,10.1.0.10,flowgen three-tier,dns,infra,prod,dc1

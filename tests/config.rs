@@ -266,9 +266,48 @@ fn host_blank_label_value_rejected() {
     let e = with_hosts("[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\nrole = \" \"\n")
         .unwrap_err();
     assert!(
-        e.contains("[[host]] #1: label keys and values must not be empty"),
+        e.contains(
+            "[[host]] #1: label keys and values must not be empty or have surrounding whitespace"
+        ),
         "{e}"
     );
+}
+
+#[test]
+fn host_label_whitespace_rejected() {
+    for labels in ["role = \" web\"", "role = \"web \"", "\" role\" = \"web\""] {
+        let e = with_hosts(&format!(
+            "[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\n{labels}\n"
+        ))
+        .unwrap_err();
+        assert!(
+            e.contains(
+                "[[host]] #1: label keys and values must not be empty or have surrounding whitespace"
+            ),
+            "{labels}: {e}"
+        );
+    }
+}
+
+#[test]
+fn host_reserved_label_keys_rejected() {
+    for key in [
+        "hostname",
+        "Name",
+        "INTERFACES",
+        "description",
+        "href",
+        "public_ip",
+    ] {
+        let e = with_hosts(&format!(
+            "[[host]]\nnets = [\"10.1.1.0/24\"]\n[host.labels]\n{key} = \"x\"\n"
+        ))
+        .unwrap_err();
+        assert!(
+            e.contains(&format!("[[host]] #1: label key '{key}' is reserved")),
+            "{key}: {e}"
+        );
+    }
 }
 
 #[test]

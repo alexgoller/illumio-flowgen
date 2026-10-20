@@ -108,7 +108,9 @@ fn demo_samples_have_pairwise_disjoint_hosts() {
 fn assert_all_labelled(name: &str, s: &Scenario) {
     let hosts = scenario_hosts(s, None).unwrap();
     assert!(!hosts.is_empty(), "{name}: no hosts");
-    for ip in hosts {
+    // load-test resolves ~131k IPs; sample it to keep the suite fast
+    let step = if name == "load-test" { 97 } else { 1 };
+    for ip in hosts.into_iter().step_by(step) {
         let info = flowgen::inventory::resolve(&s.hosts, ip);
         for key in ["role", "app", "env"] {
             assert!(

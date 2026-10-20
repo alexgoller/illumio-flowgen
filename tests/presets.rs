@@ -66,3 +66,35 @@ fn presets_label_every_host() {
         }
     }
 }
+
+#[test]
+fn same_ip_has_same_hostname_across_presets_and_samples() {
+    use std::collections::BTreeMap;
+    let samples = [
+        "web-shop",
+        "active-directory",
+        "lateral-movement",
+        "ot-iot",
+        "kubernetes",
+        "burst-demo",
+    ];
+    let mut scenarios: Vec<(String, Scenario)> = PRESETS
+        .iter()
+        .map(|p| (p.name.to_string(), Scenario::from_toml(p.toml).unwrap()))
+        .collect();
+    for stem in samples {
+        let path = std::path::Path::new("examples").join(format!("{stem}.toml"));
+        scenarios.push((stem.to_string(), Scenario::from_file(&path).unwrap()));
+    }
+    let mut seen: BTreeMap<std::net::Ipv4Addr, (String, String)> = BTreeMap::new();
+    for (name, s) in &scenarios {
+        for ip in scenario_hosts(s, Some(IPS_LIMIT)).unwrap() {
+            let host = flowgen::inventory::resolve(&s.hosts, ip).hostname;
+            if let Some((other, h)) = seen.get(&ip) {
+                assert_eq!(h, &host, "{ip}: {other} says {h}, {name} says {host}");
+            } else {
+                seen.insert(ip, (name.clone(), host));
+            }
+        }
+    }
+}

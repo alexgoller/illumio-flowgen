@@ -215,12 +215,9 @@ fn ips(source: &Source, all: bool, format: IpsFormat) -> Result<()> {
     scenario.validate()?;
     let limit = if all { None } else { Some(IPS_LIMIT) };
     let ips = scenario_hosts(&scenario, limit)?;
-    match format {
-        IpsFormat::Plain => {
-            for ip in ips {
-                println!("{ip}");
-            }
-        }
+    let mut out = BufWriter::new(io::stdout().lock());
+    let written = match format {
+        IpsFormat::Plain => ips.into_iter().try_for_each(|ip| writeln!(out, "{ip}")),
         IpsFormat::Workloader => {
             let hosts: Vec<_> = ips
                 .into_iter()
@@ -230,10 +227,12 @@ fn ips(source: &Source, all: bool, format: IpsFormat) -> Result<()> {
                 Some(n) => format!("flowgen {n}"),
                 None => "flowgen".to_string(),
             };
-            let mut out = BufWriter::new(io::stdout().lock());
-            write_workloader_csv(&mut out, &description, &hosts)?;
-            out.flush()?;
+            write_workloader_csv(&mut out, &description, &hosts)
         }
+    };
+    // `flowgen ips | head` closes the pipe early; that is not an error
+    match written.and_then(|()| out.flush()) {
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        r => r.map_err(Into::into),
     }
-    Ok(())
 }

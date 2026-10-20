@@ -23,7 +23,7 @@ Work from the source to the PCE. Stop at the first step that fails.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `wkld-import` reports unknown label or label type | Label types (role/app/env/loc, or your custom keys) must already exist in the PCE; only label values are created | Create the label type in the PCE, or remove the key from the `[[host]]` labels. |
+| `wkld-import` logs an error about a missing label type | Label types (role/app/env/loc, or your custom keys) must already exist in the PCE; only label values are created | Create the label type in the PCE, or remove the key from the `[[host]]` labels. |
 | Nothing changes in the PCE | Without `--update-pce` workloader only logs what it would do | Re-run with `--update-pce --no-prompt`. |
 | Rows are skipped as unmatched | `--umwl` missing, so unmatched hostnames do not create workloads | Add `--umwl`. |
 | Re-import updates existing workloads instead of creating new ones | Rows match on hostname (`{prefix}-a-b-c-d`, derived from the IP); empty CSV cells leave PCE values unchanged | Expected. Changing `hostname_prefix` changes the hostname, so the next import creates a new workload for that IP. |

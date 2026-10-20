@@ -18,7 +18,7 @@ nets = ["192.168.10.0/27"]
 labels = { app = "portal", env = "prod", loc = "office", role = "client" }
 hostname_prefix = "client"
 
-# DNS/NTP servers (app overridden by the more specific net)
+# hosts serving DNS and NTP, role dns (app overridden by the more specific net)
 [[host]]
 nets = ["10.1.0.10/31"]
 labels = { role = "dns", app = "infra" }

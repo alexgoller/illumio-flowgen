@@ -2,7 +2,8 @@
 # reaches NodePorts, pods talk east-west between workers, and everything resolves through CoreDNS.
 # In Illumination look for the control plane as a small, well-defined zone and the worker mesh on 8080/9090.
 # Run: flowgen run -c /usr/share/flowgen/examples/kubernetes.toml --collector <flowlink-host>
-# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml --format workloader > x.csv
+# then: workloader wkld-import x.csv --umwl
 name = "kubernetes"
 
 [rate]
