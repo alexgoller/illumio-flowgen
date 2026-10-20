@@ -1,7 +1,11 @@
-fn main() {
-    println!(
-        "flowgen {} ({})",
-        env!("CARGO_PKG_VERSION"),
-        env!("FLOWGEN_GIT_HASH")
-    );
+use std::process::ExitCode;
+
+fn main() -> ExitCode {
+    match flowgen::cli::main() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("flowgen: error: {e:#}");
+            ExitCode::from(2)
+        }
+    }
 }
