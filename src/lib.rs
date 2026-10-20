@@ -5,3 +5,5 @@ pub mod export;
 pub mod model;
 pub mod pattern;
 pub mod presets;
+pub mod stats;
+pub mod ui;
