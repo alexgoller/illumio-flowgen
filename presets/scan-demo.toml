@@ -1,0 +1,55 @@
+# three-tier traffic plus a compromised web server scanning the app tier every minute.
+name = "scan-demo"
+
+[rate]
+flows_per_sec = 50
+shape = "sine"
+period_secs = 600
+amplitude = 0.4
+
+[[rule]]
+name = "clients-to-web"
+src = ["192.168.10.0/27"]
+dst = ["10.1.1.8/29"]
+proto = "tcp"
+dst_ports = [80, 443]
+weight = 6
+
+[[rule]]
+name = "web-to-app"
+src = ["10.1.1.8/29"]
+dst = ["10.1.2.8/29"]
+proto = "tcp"
+dst_ports = [8080]
+weight = 4
+
+[[rule]]
+name = "app-to-db"
+src = ["10.1.2.8/29"]
+dst = ["10.1.3.8/30"]
+proto = "tcp"
+dst_ports = [5432, 3306]
+weight = 3
+
+[[rule]]
+name = "dns"
+src = ["10.1.1.8/29", "10.1.2.8/29", "10.1.3.8/30"]
+dst = ["10.1.0.10/31"]
+proto = "udp"
+dst_ports = [53]
+weight = 2
+
+[[rule]]
+name = "ntp"
+src = ["10.1.1.8/29", "10.1.2.8/29", "10.1.3.8/30"]
+dst = ["10.1.0.10/31"]
+proto = "udp"
+dst_ports = [123]
+weight = 1
+
+[[scan]]
+src = "10.1.1.13"
+dst = ["10.1.2.8/29"]
+ports = "1-1024"
+every_secs = 60
+flows_per_burst = 200

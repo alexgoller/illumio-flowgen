@@ -1,0 +1,122 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.arch }}-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match Cargo.toml version
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != v$version"; exit 1; }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb,cargo-generate-rpm
+      - run: cargo build --release --locked --target "$TARGET"
+      - run: file "target/$TARGET/release/flowgen" && "target/$TARGET/release/flowgen" --version
+      - run: scripts/package-linux.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-${{ matrix.arch }}
+          path: dist/*
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+      - run: scripts/package-macos.sh
+      - name: Verify tarball install and pkg payload
+        run: |
+          sh install.sh --from dist --prefix "$RUNNER_TEMP/bin"
+          "$RUNNER_TEMP/bin/flowgen" run --preset three-tier --dry-run --duration 2s --no-progress > "$RUNNER_TEMP/out.txt"
+          test -s "$RUNNER_TEMP/out.txt"
+          pkgutil --payload-files dist/*.pkg | grep -q 'usr/local/bin/flowgen'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: dist/*
+
+  verify-linux:
+    needs: linux
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            debarch: amd64
+            runner: ubuntu-latest
+          - arch: aarch64
+            debarch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-linux-${{ matrix.arch }}
+          path: dist
+      - name: .deb on Debian
+        run: |
+          docker run --rm -v "$PWD/dist:/dist" debian:stable-slim sh -ec '
+            dpkg -i /dist/flowgen_*_${{ matrix.debarch }}.deb
+            flowgen --version
+            flowgen run --preset three-tier --dry-run --duration 2s --no-progress > /tmp/out && test -s /tmp/out
+            test -f /usr/share/flowgen/examples/scenario.toml'
+      - name: .rpm on Rocky Linux
+        run: |
+          docker run --rm -v "$PWD/dist:/dist" rockylinux:9 sh -ec '
+            rpm -i /dist/flowgen-*.${{ matrix.arch }}.rpm
+            flowgen --version
+            flowgen run --preset three-tier --dry-run --duration 2s --no-progress > /tmp/out && test -s /tmp/out'
+      - name: tarball via install.sh on Alpine
+        run: |
+          docker run --rm -v "$PWD:/src" alpine:3 sh -ec '
+            sh /src/install.sh --from /src/dist --prefix /usr/local/bin
+            flowgen run --preset scan-demo --dry-run --duration 2s --no-progress > /tmp/out && test -s /tmp/out'
+
+  publish:
+    needs: [linux, macos, verify-linux]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Stamp repository into install.sh and write checksums
+        run: |
+          sed "s#__GITHUB_REPOSITORY__#${GITHUB_REPOSITORY}#" install.sh > dist/install.sh
+          cd dist && sha256sum *.tar.gz *.deb *.rpm *.pkg install.sh > SHA256SUMS && cat SHA256SUMS
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "flowgen $GITHUB_REF_NAME" --generate-notes

@@ -1,0 +1,70 @@
+# Sample: Kubernetes cluster. Workers talk to a 3-node control plane (API server, etcd, kubelet), an ingress LB
+# reaches NodePorts, pods talk east-west between workers, and everything resolves through CoreDNS.
+# In Illumination look for the control plane as a small, well-defined zone and the worker mesh on 8080/9090.
+# Run: flowgen run -c /usr/share/flowgen/examples/kubernetes.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/kubernetes.toml
+name = "kubernetes"
+
+[rate]
+flows_per_sec = 100
+shape = "sine"
+period_secs = 300
+amplitude = 0.3
+
+[[rule]]
+name = "workers-to-apiserver"
+src = ["10.60.1.0/28"]             # worker nodes
+dst = ["10.60.2.11", "10.60.2.12", "10.60.2.13"]   # control plane
+proto = "tcp"
+dst_ports = [6443]                 # kube-apiserver
+weight = 6
+
+[[rule]]
+name = "etcd-peers"
+src = ["10.60.2.11", "10.60.2.12", "10.60.2.13"]
+dst = ["10.60.2.11", "10.60.2.12", "10.60.2.13"]
+proto = "tcp"
+dst_ports = [2379, 2380]           # etcd client, etcd peer
+weight = 3
+
+[[rule]]
+name = "control-plane-to-kubelet"
+src = ["10.60.2.11", "10.60.2.12", "10.60.2.13"]
+dst = ["10.60.1.0/28"]
+proto = "tcp"
+dst_ports = [10250]                # kubelet
+weight = 3
+
+[[rule]]
+name = "ingress-to-nodeport"
+src = ["10.60.3.10"]               # ingress load balancer
+dst = ["10.60.1.0/28"]
+proto = "tcp"
+dst_ports = [30080, 30443]         # nodeport http/https
+weight = 5
+
+[[rule]]
+name = "clients-to-ingress"
+src = ["192.168.60.0/28"]
+dst = ["10.60.3.10"]
+proto = "tcp"
+dst_ports = [80, 443]              # http, https
+weight = 4
+
+[[rule]]
+name = "worker-to-worker"
+src = ["10.60.1.0/28"]
+dst = ["10.60.1.0/28"]
+proto = "tcp"
+dst_ports = [8080, 9090]           # app, prometheus metrics
+weight = 8
+
+[[rule]]
+name = "coredns"
+src = ["10.60.1.0/28"]
+dst = ["10.60.4.10"]
+proto = "udp"
+dst_ports = [53]                   # dns
+weight = 6
+packets = [1, 2]
+bytes_per_packet = [60, 300]

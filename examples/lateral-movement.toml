@@ -1,0 +1,51 @@
+# Sample: ransomware-style lateral movement for segmentation demos. Normal office traffic runs in the background;
+# the compromised workstation 10.40.1.5 sweeps the server subnet every 45 s and spreads over SMB/RDP.
+# In Illumination/Explorer look for 10.40.1.5 reaching many servers on 22/135/139/445/3389/5985 - then block it with a rule.
+# Run: flowgen run -c /usr/share/flowgen/examples/lateral-movement.toml --collector <flowlink-host>
+# Create matching unmanaged workloads with: flowgen ips -c /usr/share/flowgen/examples/lateral-movement.toml
+name = "lateral-movement"
+
+[rate]
+flows_per_sec = 40
+shape = "constant"
+
+[[rule]]
+name = "workstations-to-file-server"
+src = ["10.40.1.0/28"]             # workstations (includes the compromised 10.40.1.5)
+dst = ["10.40.2.10"]               # file server
+proto = "tcp"
+dst_ports = [445]                  # smb
+weight = 8
+
+[[rule]]
+name = "workstations-to-web-proxy"
+src = ["10.40.1.0/28"]
+dst = ["10.40.3.8"]
+proto = "tcp"
+dst_ports = [8080]                 # http proxy
+weight = 10
+
+[[rule]]
+name = "workstations-to-dns"
+src = ["10.40.1.0/28"]
+dst = ["10.40.3.53"]
+proto = "udp"
+dst_ports = [53]                   # dns
+weight = 6
+packets = [1, 2]
+bytes_per_packet = [60, 300]
+
+[[rule]]
+name = "compromised-spread"
+src = ["10.40.1.5"]                # compromised workstation
+dst = ["10.40.2.0/28"]             # server subnet
+proto = "tcp"
+dst_ports = [445, 3389]            # smb, rdp
+weight = 1
+
+[[scan]]
+src = "10.40.1.5"
+dst = ["10.40.2.0/28"]
+ports = [22, 135, 139, 445, 3389, 5985]   # ssh, rpc, netbios-ssn, smb, rdp, winrm
+every_secs = 45
+flows_per_burst = 84
