@@ -3,3 +3,4 @@
 pub mod config;
 pub mod export;
 pub mod model;
+pub mod pattern;
